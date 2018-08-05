@@ -9,25 +9,47 @@
 #     https://doc.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
+import logging
+
+
 BOT_NAME = 'wallstreet'
 
 SPIDER_MODULES = ['wallstreet.spiders']
 NEWSPIDER_MODULE = 'wallstreet.spiders'
+
+LOG_ENABLED = True
+LOG_LEVEL = logging.DEBUG
+
+### More comprehensive list can be found at
+### http://techpatterns.com/forums/about304.html
+USER_AGENT_LIST = [
+    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.36 Safari/535.7',
+    'Mozilla/5.0 (Windows NT 6.2; Win64; x64; rv:16.0) Gecko/16.0 Firefox/16.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/534.55.3 (KHTML, like Gecko) Version/5.1.3 Safari/534.53.10'
+]
+HTTP_PROXY = 'http://127.0.0.1:8123'
+DOWNLOADER_MIDDLEWARES = {
+     'wallstreet.middlewares.RandomUserAgentMiddleware': 400,
+     'wallstreet.middlewares.ProxyMiddleware': 410,
+     'scrapy.contrib.downloadermiddleware.useragent.UserAgentMiddleware': None
+    # Disable compression middleware, so the actual HTML pages are cached
+}
+#MEDIA_ALLOW_REDIRECTS = True  # DAS IST EVTL WICHTIG
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'wallstreet (+http://www.yourdomain.com)'
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-#CONCURRENT_REQUESTS = 32
+CONCURRENT_REQUESTS = 1
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://doc.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-#DOWNLOAD_DELAY = 3
+DOWNLOAD_DELAY = 5
 # The download delay setting will honor only one of:
 #CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16
@@ -44,18 +66,6 @@ ROBOTSTXT_OBEY = True
 #   'Accept-Language': 'en',
 #}
 
-# Enable or disable spider middlewares
-# See https://doc.scrapy.org/en/latest/topics/spider-middleware.html
-#SPIDER_MIDDLEWARES = {
-#    'wallstreet.middlewares.WallstreetSpiderMiddleware': 543,
-#}
-
-# Enable or disable downloader middlewares
-# See https://doc.scrapy.org/en/latest/topics/downloader-middleware.html
-#DOWNLOADER_MIDDLEWARES = {
-#    'wallstreet.middlewares.WallstreetDownloaderMiddleware': 543,
-#}
-
 # Enable or disable extensions
 # See https://doc.scrapy.org/en/latest/topics/extensions.html
 #EXTENSIONS = {
@@ -64,9 +74,10 @@ ROBOTSTXT_OBEY = True
 
 # Configure item pipelines
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    'wallstreet.pipelines.WallstreetPipeline': 300,
-#}
+ITEM_PIPELINES = {
+    'wallstreet.pipelines.WallstreetPipeline': 1,
+}
+IMAGES_STORE = ' ./images'
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://doc.scrapy.org/en/latest/topics/autothrottle.html
