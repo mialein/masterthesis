@@ -6,23 +6,27 @@
 # See: https://doc.scrapy.org/en/latest/topics/item-pipeline.html
 
 import logging
+import tkinter
+from PIL import ImageTk
+from PIL import Image
 
 from scrapy.pipelines.images import ImagesPipeline
 from scrapy import Request
 from io import BytesIO
-try:
-    import Image
-except ImportError:
-    from PIL import Image
 
 
 class WallstreetPipeline(ImagesPipeline):
     def get_media_requests(self, item, info):
-        logging.debug('get media requests: {}'.format(item))
-        filename = '{}.jpg'.format(item['image_name'][0])
-        yield Request(item['image_urls'][0], meta={'filename': filename})
+        yield Request(item['image_urls'][0])
 
     def image_downloaded(self, response, request, info):
-        logging.debug('response.body: {}'.format(response.body))
         image = Image.open(BytesIO(response.body))
-        image.show()
+        top = tkinter.Tk()
+        top.title("Solving Captcha")
+        top.geometry("400x200")
+        img = ImageTk.PhotoImage(image, size="400x200")
+        imagelabel = tkinter.Label(top, image=img)
+        textentry = tkinter.Entry(top, font = "Helvetica 12 bold")
+        imagelabel.pack(side = "top", fill = "both", expand = "yes")
+        textentry.pack(side = "bottom", fill = "both", expand = "yes")
+        top.mainloop()
