@@ -29,9 +29,10 @@ USER_AGENT_LIST = [
 ]
 HTTP_PROXY = 'http://127.0.0.1:8123'
 DOWNLOADER_MIDDLEWARES = {
-     'wallstreet.middlewares.RandomUserAgentMiddleware': 400,
-     'wallstreet.middlewares.ProxyMiddleware': 410,
-     'scrapy.contrib.downloadermiddleware.useragent.UserAgentMiddleware': None
+    'wallstreet.middlewares.RandomUserAgentMiddleware': 400,
+    'wallstreet.middlewares.ProxyMiddleware': 410,
+    'scrapy.contrib.downloadermiddleware.useragent.UserAgentMiddleware': None,
+    'wallstreet.middlewares.CaptchaMiddleware': 420
     # Disable compression middleware, so the actual HTML pages are cached
 }
 #MEDIA_ALLOW_REDIRECTS = True  # DAS IST EVTL WICHTIG
@@ -74,10 +75,10 @@ DOWNLOAD_DELAY = 5
 
 # Configure item pipelines
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
-ITEM_PIPELINES = {
-    'wallstreet.pipelines.WallstreetPipeline': 1,
-}
-IMAGES_STORE = ' ./images'
+#ITEM_PIPELINES = {
+#    'wallstreet.pipelines.WallstreetPipeline': 1,
+#}
+#IMAGES_STORE = ' ./images'
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://doc.scrapy.org/en/latest/topics/autothrottle.html

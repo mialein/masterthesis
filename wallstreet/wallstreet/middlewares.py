@@ -5,8 +5,9 @@
 # See documentation in:
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
-from scrapy import signals
 import random
+import logging
+from scrapy import signals, Request
 from scrapy.conf import settings
 
 class RandomUserAgentMiddleware(object):
@@ -67,7 +68,7 @@ class WallstreetSpiderMiddleware(object):
         spider.logger.info('Spider opened: %s' % spider.name)
 
 
-class WallstreetDownloaderMiddleware(object):
+class CaptchaMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the downloader middleware does not modify the
     # passed objects.
@@ -98,7 +99,18 @@ class WallstreetDownloaderMiddleware(object):
         # - return a Response object
         # - return a Request object
         # - or raise IgnoreRequest
-        return response
+        if not hasattr(response, 'selector'):
+            return response
+
+        captchas = response.selector.xpath("//img[@title='captcha']/@src").extract()
+
+        if not captchas:
+            return response
+
+        if response.selector.xpath("//input[@name='form[username]']").extract():
+            return Request(captchas[0], callback=spider.login, meta={'original response': response})
+        else:
+            return Request(captchas[0], callback=spider.solve_captcha, meta={'original response': response})
 
     def process_exception(self, request, exception, spider):
         # Called when a download handler or a process_request()
