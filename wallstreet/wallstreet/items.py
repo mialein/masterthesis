@@ -8,7 +8,12 @@
 import scrapy
 
 
-class WallstreetItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+class DrugOfferItem(scrapy.Item):
+    title = scrapy.Field()
+    vendor = scrapy.Field()
+    price = scrapy.Field()
+    price_unit = scrapy.Field()
+    ships_from = scrapy.Field()
+    ships_to = scrapy.Field()
+    date = scrapy.Field()
+    # drug_type = scrapy.Field()
