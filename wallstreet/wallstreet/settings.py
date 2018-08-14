@@ -43,6 +43,7 @@ DOWNLOADER_MIDDLEWARES = {
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
+DUPEFILTER_CLASS = 'scrapy.dupefilters.BaseDupeFilter'
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 CONCURRENT_REQUESTS = 1
