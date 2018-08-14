@@ -1,5 +1,7 @@
 from scrapy.spiders import Spider
 from scrapy import FormRequest
+from scrapy.selector import Selector
+from wallstreet.items import DrugOfferItem
 import logging
 import json
 
@@ -16,9 +18,17 @@ class MySpider(Spider):
         if captchas:
             logging.error("Response has captures, but should not.")
         else:
-            with open('drugs.html', mode='wb') as f:
-                f.write(response.body)
-            logging.debug('wrote response to file')
+            logging.debug('in parse()')
+            titles = response.selector.xpath("//div[@class='card-body']/h4/a/text()").extract()
+            vendors = response.selector.xpath("//div[@class='card-body']/hr/following-sibling::text()").extract()
+            prices = response.selector.xpath("//div[@class='card-body']/b/text()").extract()
+            price_units = response.selector.xpath("//div[@class='card-body']/b/following-sibling::text()").extract()
+            #ships_froms = response.selector.xpath("//div[@class='card-body']/h4/a/text()").extract()
+            logging.debug('Titles: {}'.format(titles))
+            logging.debug('Vendors: {}'.format(vendors))
+            logging.debug('Prices: {}'.format(prices))
+            logging.debug('Price units: {}'.format(price_units))
+
 
     def solve_captcha(self, response):
         logging.debug("in solve_captcha()")
