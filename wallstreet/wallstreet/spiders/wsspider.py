@@ -36,6 +36,8 @@ class MySpider(Spider):
                 date = time.strftime("%d.%m.%Y")
                 timestamp = time.strftime("%H:%M:%S")
 
+                yield DrugOfferItem(title=title, vendor=vendor, price=price, price_unit=price_unit, ships_from=ships_from, ships_to=ships_to, date=date, time=timestamp)
+
 
     def solve_captcha(self, response):
         logging.debug("in solve_captcha()")
