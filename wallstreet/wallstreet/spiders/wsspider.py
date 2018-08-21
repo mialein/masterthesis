@@ -20,6 +20,7 @@ class MySpider(Spider):
             logging.error("Response has captures, but should not.")
         else:
             logging.debug('in parse()')
+
             card_bodys = response.selector.xpath("//div[@class='card-body']").extract()
 
             for card in card_bodys:
@@ -91,22 +92,33 @@ class MySpider(Spider):
         logging.debug('applying formdata in original response {}'.format(response.meta['original response']))
         yield FormRequest.from_response(response.meta['original response'], formdata=formdata, callback=self.click_drugs)
 
+    drug_form_data = {
+        'weed': {'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '1', 'form[limit]': '90'},
+        'hashish': {'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '2', 'form[limit]': '90'},
+        'concentrates': {'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '16', 'form[limit]': '90'},
+        'cocaine': {'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '3', 'form[limit]': '90'},
+        'methaphetamine': {'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '4', 'form[limit]': '90'},
+        'speed': {'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '5', 'form[limit]': '90'},
+        'lsd': {'form[catT]': '1', 'form[catM]': '50', 'form[catB]': '7', 'form[limit]': '90'},
+        'mdma': {'form[catT]': '1', 'form[catM]': '4', 'form[catB]': '0', 'form[limit]': '90'},
+        'benzos': {'form[catT]': '1', 'form[catM]': '7', 'form[catB]': '0', 'form[limit]': '90'},
+        'ecstasy': {'form[catT]': '1', 'form[catM]': '8', 'form[catB]': '0', 'form[limit]': '90'},
+        'opiates': {'form[catT]': '1', 'form[catM]': '9', 'form[catB]': '0', 'form[limit]': '90'},
+        'steroids': {'form[catT]': '1', 'form[catM]': '10', 'form[catB]': '0', 'form[limit]': '90'}
+    }
+
     def click_drugs(self, response):
         logging.debug('in click_drugs()')
-        data = [
-            ({'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '1', 'form[limit]': '90'}, 'weed'),
-            ({'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '2', 'form[limit]': '90'}, 'hashish'),
-            ({'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '16', 'form[limit]': '90'}, 'concentrates'),
-            ({'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '3', 'form[limit]': '90'}, 'cocaine'),
-            ({'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '4', 'form[limit]': '90'}, 'methaphetamine'),
-            ({'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '5', 'form[limit]': '90'}, 'speed'),
-            ({'form[catT]': '1', 'form[catM]': '50', 'form[catB]': '7', 'form[limit]': '90'}, 'lsd'),
-            ({'form[catT]': '1', 'form[catM]': '4', 'form[catB]': '0', 'form[limit]': '90'}, 'mdma'),
-            ({'form[catT]': '1', 'form[catM]': '7', 'form[catB]': '0', 'form[limit]': '90'}, 'benzos'),
-            ({'form[catT]': '1', 'form[catM]': '8', 'form[catB]': '0', 'form[limit]': '90'}, 'ecstasy'),
-            ({'form[catT]': '1', 'form[catM]': '9', 'form[catB]': '0', 'form[limit]': '90'}, 'opiates'),
-            ({'form[catT]': '1', 'form[catM]': '10', 'form[catB]': '0', 'form[limit]': '90'}, 'steroids')
 
-        ]
-        for formdata, drugname in data:
-            yield FormRequest.from_response(response, formxpath='/html/body/div[1]/form[1]', formdata=formdata, callback=self.parse, meta={'drugname': drugname})
+        for drugname, formdata in self.drug_form_data.items():
+            yield FormRequest.from_response(response, formxpath='/html/body/div[1]/form[1]', formdata=formdata, callback=self.click_all_pages, meta={'drugname': drugname})
+
+    def click_all_pages(self, response):
+        pagenumbers = response.selector.xpath("//div[@class='row specialrow']/div[@class='col-lg-3']/div[@class='card card-body mb-2 pb-2']/ul/li[2]/text()").extract_first()
+        pagecount = int(pagenumbers.split("/")[-1])
+
+        for page in range(pagecount):
+            formdata = self.drug_form_data[response.meta['drugname']]
+            formdata['form[page]'] = str(page+1)
+            yield FormRequest.from_response(response, formxpath='/html/body/div[1]/form[1]', formdata=formdata,
+                                            callback=self.parse, meta=response.meta)
