@@ -4,6 +4,7 @@ from scrapy.selector import Selector
 from wallstreet.items import DrugOfferItem
 import logging
 import json
+import time
 
 from io import BytesIO, open
 import tkinter
@@ -19,15 +20,21 @@ class MySpider(Spider):
             logging.error("Response has captures, but should not.")
         else:
             logging.debug('in parse()')
-            titles = response.selector.xpath("//div[@class='card-body']/h4/a/text()").extract()
-            vendors = response.selector.xpath("//div[@class='card-body']/hr/following-sibling::text()").extract()
-            prices = response.selector.xpath("//div[@class='card-body']/b/text()").extract()
-            price_units = response.selector.xpath("//div[@class='card-body']/b/following-sibling::text()").extract()
-            #ships_froms = response.selector.xpath("//div[@class='card-body']/h4/a/text()").extract()
-            logging.debug('Titles: {}'.format(titles))
-            logging.debug('Vendors: {}'.format(vendors))
-            logging.debug('Prices: {}'.format(prices))
-            logging.debug('Price units: {}'.format(price_units))
+            card_bodys = response.selector.xpath("//div[@class='card-body']").extract()
+            logging.debug("found {} cards".format(len(card_bodys)))
+
+            for card in card_bodys:
+                selector = Selector(text=card)
+                title = selector.xpath(".//h4[@class='card-title']/a/text()").extract_first()
+                vendor = selector.xpath(".//hr[1]/following-sibling::a/text()").extract_first()
+                price = selector.xpath(".//hr[2]/following-sibling::b/text()").extract_first()
+                price_unit = selector.xpath(".//hr[2]/following-sibling::b/following-sibling::text()").extract_first()
+                ships_from = selector.xpath(".//i[@class='ionicons ion-log-out']/following-sibling::text()").extract_first()
+                ships_to = selector.xpath(".//i[@class='ionicons ion-log-in']/following-sibling::text()").extract_first() or ''
+                ships_to += selector.xpath(".//i[@class='ionicons ion-log-in']/following-sibling::div/text()").extract_first() or ''
+                ships_to += selector.xpath(".//i[@class='ionicons ion-log-in']/following-sibling::div/div/text()").extract_first() or ''
+                date = time.strftime("%d.%m.%Y")
+                timestamp = time.strftime("%H:%M:%S")
 
 
     def solve_captcha(self, response):
