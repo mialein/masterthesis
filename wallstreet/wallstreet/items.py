@@ -17,4 +17,4 @@ class DrugOfferItem(scrapy.Item):
     ships_to = scrapy.Field()
     date = scrapy.Field()
     time = scrapy.Field()
-    # drug_type = scrapy.Field()
+    drug_type = scrapy.Field()

@@ -21,7 +21,6 @@ class MySpider(Spider):
         else:
             logging.debug('in parse()')
             card_bodys = response.selector.xpath("//div[@class='card-body']").extract()
-            logging.debug("found {} cards".format(len(card_bodys)))
 
             for card in card_bodys:
                 selector = Selector(text=card)
@@ -36,7 +35,10 @@ class MySpider(Spider):
                 date = time.strftime("%d.%m.%Y")
                 timestamp = time.strftime("%H:%M:%S")
 
-                yield DrugOfferItem(title=title, vendor=vendor, price=price, price_unit=price_unit, ships_from=ships_from, ships_to=ships_to, date=date, time=timestamp)
+                yield DrugOfferItem(title=title, vendor=vendor, price=price, price_unit=price_unit,
+                                    ships_from=ships_from, ships_to=ships_to, date=date, time=timestamp, drug_type=response.meta['drugname'])
+
+            logging.debug("found {} cards".format(len(card_bodys)))
 
 
     def solve_captcha(self, response):
@@ -91,5 +93,20 @@ class MySpider(Spider):
 
     def click_drugs(self, response):
         logging.debug('in click_drugs()')
-        formdata = {'menuCatT': '1'}
-        yield FormRequest.from_response(response, formxpath='/html/body/div[1]/form[1]', formdata=formdata, callback=self.parse)
+        data = [
+            ({'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '1', 'form[limit]': '90'}, 'weed'),
+            ({'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '2', 'form[limit]': '90'}, 'hashish'),
+            ({'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '16', 'form[limit]': '90'}, 'concentrates'),
+            ({'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '3', 'form[limit]': '90'}, 'cocaine'),
+            ({'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '4', 'form[limit]': '90'}, 'methaphetamine'),
+            ({'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '5', 'form[limit]': '90'}, 'speed'),
+            ({'form[catT]': '1', 'form[catM]': '50', 'form[catB]': '7', 'form[limit]': '90'}, 'lsd'),
+            ({'form[catT]': '1', 'form[catM]': '4', 'form[catB]': '0', 'form[limit]': '90'}, 'mdma'),
+            ({'form[catT]': '1', 'form[catM]': '7', 'form[catB]': '0', 'form[limit]': '90'}, 'benzos'),
+            ({'form[catT]': '1', 'form[catM]': '8', 'form[catB]': '0', 'form[limit]': '90'}, 'ecstasy'),
+            ({'form[catT]': '1', 'form[catM]': '9', 'form[catB]': '0', 'form[limit]': '90'}, 'opiates'),
+            ({'form[catT]': '1', 'form[catM]': '10', 'form[catB]': '0', 'form[limit]': '90'}, 'steroids')
+
+        ]
+        for formdata, drugname in data:
+            yield FormRequest.from_response(response, formxpath='/html/body/div[1]/form[1]', formdata=formdata, callback=self.parse, meta={'drugname': drugname})
