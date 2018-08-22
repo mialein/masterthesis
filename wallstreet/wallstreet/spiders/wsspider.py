@@ -97,7 +97,7 @@ class MySpider(Spider):
         'hashish': {'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '2', 'form[limit]': '90'},
         'concentrates': {'form[catT]': '1', 'form[catM]': '1', 'form[catB]': '16', 'form[limit]': '90'},
         'cocaine': {'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '3', 'form[limit]': '90'},
-        'methaphetamine': {'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '4', 'form[limit]': '90'},
+        'meth': {'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '4', 'form[limit]': '90'},
         'speed': {'form[catT]': '1', 'form[catM]': '11', 'form[catB]': '5', 'form[limit]': '90'},
         'lsd': {'form[catT]': '1', 'form[catM]': '50', 'form[catB]': '7', 'form[limit]': '90'},
         'mdma': {'form[catT]': '1', 'form[catM]': '4', 'form[catB]': '0', 'form[limit]': '90'},
