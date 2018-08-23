@@ -33,7 +33,7 @@ DOWNLOADER_MIDDLEWARES = {
     'dreammarket.middlewares.RandomUserAgentMiddleware': 400,
     'dreammarket.middlewares.ProxyMiddleware': 410,
     'scrapy.contrib.downloadermiddleware.useragent.UserAgentMiddleware': None,
-    #'dreammarket.middlewares.CaptchaMiddleware': 420
+    'dreammarket.middlewares.CaptchaMiddleware': 420
     # Disable compression middleware, so the actual HTML pages are cached
 }
 
@@ -45,9 +45,9 @@ DUPEFILTER_CLASS = 'scrapy.dupefilters.BaseDupeFilter'
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 CONCURRENT_REQUESTS = 1
 
-ITEM_PIPELINES = {
+#ITEM_PIPELINES = {
     #'dreammarket.pipelines.MongoPipeline': 300
-}
+#}
 
 MONGODB_SERVER = "localhost"
 MONGODB_PORT = 27017
