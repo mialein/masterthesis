@@ -16,8 +16,8 @@ class MySpider(Spider):
     def parse(self, response):
         logging.debug("in parse()")
 
-    def solve_captcha(self, response):
-        logging.debug("in solve_captcha()")
+    def login(self, response):
+        logging.debug("in login()")
         image = Image.open(BytesIO(response.body))
         top = tkinter.Tk()
         top.title("Solving Captcha")
@@ -26,6 +26,11 @@ class MySpider(Spider):
         imagelabel = tkinter.Label(top, image=img)
         textentry = tkinter.Entry(top, font = "Helvetica 20 bold")
         textentry.focus_set()
+
+        original_response = response.meta['original response']
+        empty_inputs = original_response.selector.xpath("//form/div[@class='formInputs']/div/input[not(@value) or @value='']").extract()
+        logging.debug('empty formdata: {}'.format(empty_inputs))
+
         formdata = {}
 
         def callback(en):
@@ -37,5 +42,5 @@ class MySpider(Spider):
         textentry.pack(side = "bottom", fill = "both", expand = "yes")
         top.mainloop()
 
-        logging.debug('applying formdata in original response {}'.format(response.meta['original response']))
-        yield FormRequest.from_response(response.meta['original response'], formdata=formdata)
+        logging.debug('applying formdata in original response {}'.format(original_response))
+        yield FormRequest.from_response(original_response, formdata=formdata)
