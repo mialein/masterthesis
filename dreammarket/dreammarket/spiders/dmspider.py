@@ -29,12 +29,22 @@ class MySpider(Spider):
 
         original_response = response.meta['original response']
         empty_inputs = original_response.selector.xpath("//form/div[@class='formInputs']/div/input[not(@value) or @value='']").extract()
-        logging.debug('empty formdata: {}'.format(empty_inputs))
 
-        formdata = {}
+        if len(empty_inputs) != 3:
+            with open('strange.html', 'wb') as f:
+                f.write(original_response.body)
+
+        username_key = Selector(text=empty_inputs[0]).xpath(".//input/@name").extract_first()
+        password_key = Selector(text=empty_inputs[1]).xpath(".//input/@name").extract_first()
+        captcha_key = Selector(text=empty_inputs[2]).xpath(".//input/@name").extract_first()
+
+        formdata = {
+            username_key: json.load(open('config'))['username'],
+            password_key: json.load(open('config'))['password']
+        }
 
         def callback(en):
-            formdata['form[captcha]'] = textentry.get()
+            formdata[captcha_key] = textentry.get()
             top.destroy()
 
         textentry.bind("<Return>", callback)
