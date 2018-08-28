@@ -1,5 +1,5 @@
 from scrapy.spiders import Spider
-from scrapy import FormRequest
+from scrapy import FormRequest, Request
 from scrapy.selector import Selector
 import logging
 import json
@@ -14,7 +14,7 @@ class MySpider(Spider):
     start_urls = json.load(open('config'))['start_urls']
 
     def parse(self, response):
-        logging.debug("in parse()")
+        logging.debug("in parse() {}".format(response.meta['drugname']))
 
     def login(self, response):
         logging.debug("in login()")
@@ -53,4 +53,26 @@ class MySpider(Spider):
         top.mainloop()
 
         logging.debug('applying formdata in original response {}'.format(original_response))
-        yield FormRequest.from_response(original_response, formdata=formdata)
+        yield FormRequest.from_response(original_response, formdata=formdata, callback=self.click_all_drugs)
+
+    def click_all_drugs(self, response):
+        drug_ids = {
+            'weed': '175',
+            'hashish': '172',
+            'concentrates': '170',
+            'cocaine': '187',
+            'meth': '188',
+            'speed': '190',
+            'lsd': '153',
+            'mdma': '161',
+            'benzos': '120',
+            'ecstasy': '163',
+            'opiates': '124',
+            'steroids': '128'
+        }
+
+        base_address = self.start_urls[0] + '?category='
+
+        for drug_name, drug_id in drug_ids.items():
+            address = base_address + drug_id
+            yield Request(address, meta={'drugname': drug_name})
