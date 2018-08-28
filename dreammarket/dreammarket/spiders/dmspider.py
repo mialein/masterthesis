@@ -75,4 +75,11 @@ class MySpider(Spider):
 
         for drug_name, drug_id in drug_ids.items():
             address = base_address + drug_id
-            yield Request(address, meta={'drugname': drug_name})
+            yield Request(address, meta={'drugname': drug_name}, callback=self.click_all_pages)
+
+    def click_all_pages(self, response):
+        page_numbers = response.selector.xpath("//div[@class='pageNavContainer']/ul/li/a/text()").extract()[:-1]
+
+        for page in page_numbers:
+            address = response.url + '&page=' + page
+            yield Request(address, meta=response.meta)
