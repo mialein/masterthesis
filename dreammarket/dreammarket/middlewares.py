@@ -110,7 +110,7 @@ class CaptchaMiddleware(object):
 
         base_url = json.load(open('config'))['start_urls'][0]
 
-        return Request(base_url + captchas[0], callback=spider.solve_captcha, meta={'original response': response})
+        return Request(base_url + captchas[0], callback=spider.login, meta={'original response': response})
 
     def process_exception(self, request, exception, spider):
         # Called when a download handler or a process_request()
