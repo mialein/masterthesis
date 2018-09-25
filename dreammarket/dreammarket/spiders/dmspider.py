@@ -16,6 +16,24 @@ class MySpider(Spider):
     def parse(self, response):
         logging.debug("in parse() {}".format(response.meta['drugname']))
 
+        card_bodys = response.selector.xpath("//div/div[@class='around']").extract()
+        detail_path = ".//div/div[@class='oOfferBody']/table//td[@class='oOfTextDetail']"
+
+        for card in card_bodys:
+            selector = Selector(text=card)
+            title = selector.xpath(".//div/div[@class='text oTitle']/a/text()").extract_first().strip()
+            price = selector.xpath(detail_path + "/div[@class='bottom oPrice']/text()").extract_first().strip()
+            price_unit = ''
+            vendor = selector.xpath(detail_path + "/div[@class='oVendor']/a[1]/text()").extract_first().strip()
+            ships = selector.xpath(detail_path + "/div[@class='oShips']/span/text()").extract_first()
+            ships_from, ships_to = tuple(ships.split('→'))
+            ships_from, ships_to = ships_from.strip(), ships_to.strip()
+            date = time.strftime("%d.%m.%Y")
+            timestamp = time.strftime("%H:%M:%S")
+
+            logging.debug("title: {}\nprice: {}\nvendor: {}\nships from: {}\nships_to: {}\ndate: {}\n timestamp: {}\n"
+                          .format(title, price, vendor, ships_from, ships_to, date, timestamp))
+
     def login(self, response):
         logging.debug("in login()")
         image = Image.open(BytesIO(response.body))
@@ -80,6 +98,6 @@ class MySpider(Spider):
     def click_all_pages(self, response):
         max_page = response.selector.xpath("//div[@class='pageNavContainer']/ul/li/a/text()").extract()[-2]
 
-        for page in range(1, max_page+1):
-            address = response.url + '&page=' + page
-            yield Request(address, meta=response.meta)
+        for page in range(1, int(max_page)+1):
+            address = response.url + '&page=' + str(page)
+            yield Request(address, meta=response.meta, callback=self.parse)
