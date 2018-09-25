@@ -78,8 +78,8 @@ class MySpider(Spider):
             yield Request(address, meta={'drugname': drug_name}, callback=self.click_all_pages)
 
     def click_all_pages(self, response):
-        page_numbers = response.selector.xpath("//div[@class='pageNavContainer']/ul/li/a/text()").extract()[:-1]
+        max_page = response.selector.xpath("//div[@class='pageNavContainer']/ul/li/a/text()").extract()[-2]
 
-        for page in page_numbers:
+        for page in range(1, max_page+1):
             address = response.url + '&page=' + page
             yield Request(address, meta=response.meta)
