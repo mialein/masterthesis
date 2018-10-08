@@ -1,6 +1,5 @@
 from scrapy.spiders import Spider
-from scrapy import FormRequest
-from scrapy.selector import Selector
+from scrapy import FormRequest, Request
 import logging
 import json
 
@@ -48,5 +47,27 @@ class MySpider(Spider):
     def click_all_drugs(self, response):
         logging.debug('in click_all_drugs()')
 
+        drug_ids = {
+            'weed': ['13'],
+            'hashish': ['4'],
+            'cocaine': ['11'],
+            'meth': ['107'],
+            'speed': ['43'],
+            'lsd': ['14'],
+            'mdma': ['7'],
+            'benzos': ['45', '46'],
+            'ecstasy': ['9'],
+            'opiates': ['15'],
+            'steroids': ['10']
+        }
+
+        base_address = json.load(open('config'))['base_url'] + '/marketplace?category='
+
+        for drug_name, drug_ids in drug_ids.items():
+            for drug_id in drug_ids:
+                address = base_address + drug_id
+                yield Request(address, meta={'drugname': drug_name}, callback=self.click_all_pages)
+
     def click_all_pages(self, response):
-        pass
+        logging.debug('in click_all_pages()')
+        
