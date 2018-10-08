@@ -1,5 +1,6 @@
 from scrapy.spiders import Spider
 from scrapy import FormRequest, Request
+from scrapy.selector import Selector
 import logging
 import json
 
@@ -70,4 +71,15 @@ class MySpider(Spider):
 
     def click_all_pages(self, response):
         logging.debug('in click_all_pages()')
-        
+
+        pages = response.selector.xpath("//div[@class='ui pagination menu']/div/a/text()").extract()
+        if not pages:
+            self.click_all_cards(response)
+        else:
+            max_page = int(pages[-1])
+            for page in range(1, max_page+1):
+                address = response.url + '&page=' + str(page)
+                yield Request(address, meta=response.meta, callback=self.click_all_cards)
+
+    def click_all_cards(selfs, response):
+        logging.debug('in click_all_cards()')
