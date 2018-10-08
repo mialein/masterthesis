@@ -1,6 +1,7 @@
 from scrapy.spiders import Spider
 from scrapy import FormRequest, Request
 from scrapy.selector import Selector
+from dreammarket.items import DrugOfferItem
 import logging
 import json
 import time
@@ -19,6 +20,9 @@ class MySpider(Spider):
         card_bodys = response.selector.xpath("//div/div[@class='around']").extract()
         detail_path = ".//div/div[@class='oOfferBody']/table//td[@class='oOfTextDetail']"
 
+        if not card_bodys:
+            logging.debug(response.body)
+
         for card in card_bodys:
             selector = Selector(text=card)
             title = selector.xpath(".//div/div[@class='text oTitle']/a/text()").extract_first().strip()
@@ -31,8 +35,11 @@ class MySpider(Spider):
             date = time.strftime("%d.%m.%Y")
             timestamp = time.strftime("%H:%M:%S")
 
-            logging.debug("title: {}\nprice: {}\nvendor: {}\nships from: {}\nships_to: {}\ndate: {}\n timestamp: {}\n"
-                          .format(title, price, vendor, ships_from, ships_to, date, timestamp))
+            yield DrugOfferItem(title=title, vendor=vendor, price=price, price_unit=price_unit,
+                                ships_from=ships_from, ships_to=ships_to, date=date, time=timestamp,
+                                drug_type=response.meta['drugname'])
+
+        logging.debug("found {} cards".format(len(card_bodys)))
 
     def login(self, response):
         logging.debug("in login()")
