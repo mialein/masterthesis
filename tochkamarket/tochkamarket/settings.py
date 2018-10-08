@@ -28,10 +28,10 @@ USER_AGENT_LIST = [
 ]
 HTTP_PROXY = 'http://127.0.0.1:8123'
 DOWNLOADER_MIDDLEWARES = {
-    'wallstreet.middlewares.RandomUserAgentMiddleware': 400,
-    'wallstreet.middlewares.ProxyMiddleware': 410,
+    'tochkamarket.middlewares.RandomUserAgentMiddleware': 400,
+    'tochkamarket.middlewares.ProxyMiddleware': 410,
     'scrapy.contrib.downloadermiddleware.useragent.UserAgentMiddleware': None,
-    'wallstreet.middlewares.CaptchaMiddleware': 420
+    'tochkamarket.middlewares.CaptchaMiddleware': 420
     # Disable compression middleware, so the actual HTML pages are cached
 }
 
