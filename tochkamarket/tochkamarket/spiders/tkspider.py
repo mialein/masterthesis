@@ -1,6 +1,6 @@
 from scrapy.spiders import Spider
 from scrapy import FormRequest, Request
-from scrapy.selector import Selector
+import time
 import logging
 import json
 
@@ -13,7 +13,27 @@ class MySpider(Spider):
     start_urls = json.load(open('config'))['start_urls']
 
     def parse(self, response):
-        pass
+        logging.debug('in parse()')
+
+        title = response.selector.xpath("//div[@class='twelve wide column']/div/h3/text()").extract_first().strip()
+        vendor = response.selector.xpath("//div[@class='user info']/div/div[@class='content card-header']/a/text()").extract_first()
+        amount = [a.strip() for a in response.selector.xpath("//table[@class='ui very basic table']//td/text()").extract() if a.strip()][-1]
+        price = [a.strip() for a in response.selector.xpath("//table[@class='ui very basic table']//td/a/text()").extract() if a.strip()][-1]
+        price_unit = ''
+        ships_from = response.selector.xpath("//table[@class='ui celled table fluid inverted green']//th[2]/span/text()").extract_first() or ''
+        ships_to = response.selector.xpath("//table[@class='ui celled table fluid inverted green']//th[3]/span/text()").extract_first() or ''
+        date = time.strftime("%d.%m.%Y")
+        timestamp = time.strftime("%H:%M:%S")
+        logging.debug('title: ' + title)
+        logging.debug('vendor: ' + vendor)
+        logging.debug('amount: ' + amount)
+        logging.debug('price: ' + price)
+        logging.debug('ships from: ' + ships_from)
+        logging.debug('ships to: ' + ships_to)
+
+        #yield DrugOfferItem(title=title, vendor=vendor, price=price, price_unit=price_unit,
+        #                    ships_from=ships_from, ships_to=ships_to, date=date, time=timestamp,
+        #                    drug_type=response.meta['drugname'])
 
     def login(self, response):
         logging.debug("in login()")
@@ -81,5 +101,12 @@ class MySpider(Spider):
                 address = response.url + '&page=' + str(page)
                 yield Request(address, meta=response.meta, callback=self.click_all_cards)
 
-    def click_all_cards(selfs, response):
+    def click_all_cards(self, response):
         logging.debug('in click_all_cards()')
+
+        card_hrefs = response.selector.xpath("//div[@class='ui grid']/div[@class='eight wide column']/div/div[@class='image']/a/@href").extract()
+        logging.debug('found {} cards'.format(len(card_hrefs)))
+
+        for card in card_hrefs:
+            address = json.load(open('config'))['base_url'] + card
+            yield Request(address, meta=response.meta, callback=self.parse)
