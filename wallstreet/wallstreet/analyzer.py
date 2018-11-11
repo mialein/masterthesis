@@ -4,26 +4,32 @@ if __name__ == '__main__':
     import numpy as np
     import datetime as dt
     import sys
+    import argparse
     import re
     from collections import Counter
 
+
+    parser = argparse.ArgumentParser()
+
     drug_list = ['weed', 'hashish', 'concentrates', 'cocaine', 'meth', 'speed',
             'lsd', 'mdma', 'benzos', 'ecstasy', 'opiates', 'steroids']
+    unit_list = ['gram', 'piece']
+
+    parser.add_argument('--drug', choices=drug_list, default='weed')
+    parser.add_argument('--price_unit', choices=unit_list, default='gram')
+    parser.add_argument('--ships_from', help='one of US, DE, NL, etc...')
+    parser.add_argument('--ships_to', help='one of Worldwide, US, DE, NL, etc...')
+
+    args = parser.parse_args()
 
     with pymongo.MongoClient(settings['MONGODB_SERVER'], settings['MONGODB_PORT']) as client:
         db = client[settings['MONGODB_DB']]
         table = db[settings['MONGODB_COLLECTION']]
 
-        drug = sys.argv[1]
-        if drug not in drug_list:
-            raise Exception('invalid drug: ' + drug)
-        query = {'drug_type': drug}
+        query = {'drug_type': args.drug}
         docs = table.find(query)
 
-    currency = sys.argv[2] if len(sys.argv) > 2 else '€' 
-    price_unit = sys.argv[3] if len(sys.argv) > 3 else 'gram'
-    ships_from = sys.argv[4] if len(sys.argv) > 4 else None
-    ships_to = sys.argv[5] if len(sys.argv) > 5 else None
+    currency = '$' 
 
     docs = [d for d in docs]
     for doc in docs:
@@ -40,10 +46,10 @@ if __name__ == '__main__':
     print(Counter(t for d in docs for t in d['ships_to']))
 
     filtered_docs = {(doc['title'], doc['date']): doc for doc in docs # filter duplicate dates, TODO: rather differentiate by timestep, too
-            if currency in doc['price'] and doc['price_unit'] == price_unit and
-                (ships_from is None or ships_from == doc['ships_from']) and (ships_to is None or ships_to in doc['ships_to'])
+            if currency in doc['price'] and doc['price_unit'] == args.price_unit and
+                (args.ships_from is None or args.ships_from == doc['ships_from']) and (args.ships_to is None or args.ships_to in doc['ships_to'])
             }.values()
-    print('{} docs with {}/{} shipping from {} to {}'.format(len(filtered_docs), currency, price_unit, ships_from, ships_to))
+    print('{} docs with {}/{} shipping from {} to {}'.format(len(filtered_docs), currency, args.price_unit, args.ships_from, args.ships_to))
 
     def to_float(price):
         try:
@@ -62,7 +68,7 @@ if __name__ == '__main__':
         'price': to_float(d['price'].strip(currency))}
         for d in filtered_docs]
 
-    if price_unit == 'gram':
+    if args.price_unit == 'gram':
         find_multi = re.compile(r'(\d+)\s*(gr|g)', re.I) #case insensitive
 
         for eg in filtered_docs:
@@ -91,6 +97,11 @@ if __name__ == '__main__':
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y'))
         plt.plot(dates, y[label])
 
-        plt.legend([label], loc='lower right')
+        legend = '{} for {}'.format(label, args.drug)
+        if args.ships_from:
+            legend += '\nfrom ' + args.ships_from
+        if args.ships_to:
+            legend += '\nto ' + args.ships_to
+        plt.legend([legend], loc='lower right')
         plt.xticks(dates[::1], rotation=90)
         plt.show()
