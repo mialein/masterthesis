@@ -17,23 +17,31 @@ if __name__ == '__main__':
 
     currency = sys.argv[2] if len(sys.argv) > 2 else '€' 
 
-    stripped_docs = [{'title': d['title'], 'date': d['date'], 'price': d['price'], 'price_unit': d['price_unit'].strip()} for d in docs]
-    print('{} stripped docs'.format(len(stripped_docs)))
+    docs = [d for d in docs]
+    for doc in docs:
+        doc['price_unit'] = doc['price_unit'].strip()
+        doc['ships_from'] = ' '.join(s.replace('Ships from:', '').strip() for s in doc['ships_from'].split('\n')).strip()
+        doc['ships_to'] = ' '.join(s.replace('Only ships to certain countries', '').strip() for s in doc['ships_to'].split('\n')).strip()
 
-    print(Counter(d['price_unit'] for d in stripped_docs)) #{'/Milligram', '/Ounce', '/Gram', '/Piece'}
+    print('{} docs'.format(len(docs)))
 
-    eur_grams = {(doc['title'], doc['date']): doc for doc in stripped_docs if currency in doc['price'] and doc['price_unit'] == '/Gram'}.values()
+    print(Counter(d['price_unit'] for d in docs))
+    print(Counter(re.sub(r'[^\$\€]', '', d['price']) for d in docs))
+    print(Counter(d['ships_from'] for d in docs))
+    print(Counter(d['ships_to'] for d in docs))
+
+    eur_grams = {(doc['title'], doc['date']): doc for doc in docs if currency in doc['price'] and doc['price_unit'] == '/Gram'}.values()
     print('{} docs with {}/Gram'.format(len(eur_grams), currency))
 
-    def to_float(str):
+    def to_float(price):
         try:
-            str = str.replace("'", '')
-            if ',' in str:
-                return float(str.replace('.', '').replace(',', '.'))
+            price = price.replace("'", '')
+            if ',' in price:
+                return float(price.replace('.', '').replace(',', '.'))
             else:
-                return float(str)
+                return float(price)
         except:
-            print('failed: ' + str)
+            print('failed: ' + price)
             return None
 
     eur_grams = [{
@@ -47,7 +55,9 @@ if __name__ == '__main__':
     for eg in eur_grams:
         match = find_multi.search(eg['title'])
         if match:
-            eg['price'] /= int(match.group(1))
+            div = int(match.group(1))
+            if div != 0:
+                eg['price'] /= div
 
 
     dates = sorted({d['date'] for d in eur_grams})
@@ -62,12 +72,12 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
-    y = {label: [data[label] for date, data in sorted(data_per_date.items())] for label in labels if label}
+    y = {label: [data[label] for date, data in sorted(data_per_date.items())] for label in labels}
 
-    for label in y:
+    for label in labels:
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y'))
         plt.plot(dates, y[label])
 
         plt.legend([label], loc='upper right')
-        plt.xticks(dates[::2], rotation=90)
+        plt.xticks(dates[::1], rotation=90)
         plt.show()
