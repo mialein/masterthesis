@@ -4,6 +4,7 @@ if __name__ == '__main__':
     import numpy as np
     import datetime as dt
     import sys
+    import re
     from collections import Counter
 
     with pymongo.MongoClient(settings['MONGODB_SERVER'], settings['MONGODB_PORT']) as client:
@@ -14,16 +15,19 @@ if __name__ == '__main__':
         query = {'drug_type': drug}
         docs = table.find(query)
 
+    currency = sys.argv[2] if len(sys.argv) > 2 else '€' 
+
     stripped_docs = [{'title': d['title'], 'date': d['date'], 'price': d['price'], 'price_unit': d['price_unit'].strip()} for d in docs]
     print('{} stripped docs'.format(len(stripped_docs)))
 
     print(Counter(d['price_unit'] for d in stripped_docs)) #{'/Milligram', '/Ounce', '/Gram', '/Piece'}
 
-    eur_grams = {(doc['title'], doc['date']): doc for doc in stripped_docs if '€' in doc['price'] and doc['price_unit'] == '/Gram'}.values()
-    print('{} docs with EUR/Gram'.format(len(eur_grams)))
+    eur_grams = {(doc['title'], doc['date']): doc for doc in stripped_docs if currency in doc['price'] and doc['price_unit'] == '/Gram'}.values()
+    print('{} docs with {}/Gram'.format(len(eur_grams), currency))
 
     def to_float(str):
         try:
+            str = str.replace("'", '')
             if ',' in str:
                 return float(str.replace('.', '').replace(',', '.'))
             else:
@@ -35,10 +39,9 @@ if __name__ == '__main__':
     eur_grams = [{
         'title': d['title'],
         'date': dt.datetime.strptime(d['date'],'%d.%m.%Y').date(),
-        'price': to_float(d['price'].strip('€'))}
+        'price': to_float(d['price'].strip(currency))}
         for d in eur_grams]
 
-    import re
     find_multi = re.compile(r'(\d+)\s*(gr|g)', re.I) #case insensitive
 
     for eg in eur_grams:
