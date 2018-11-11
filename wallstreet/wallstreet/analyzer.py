@@ -36,6 +36,8 @@ if __name__ == '__main__':
         doc['ships_from'] = ' '.join(s.replace('Ships from:', '').strip() for s in doc['ships_from'].split('\n')).strip()
         stripped = ' '.join(s.replace('Only ships to certain countries', '').strip() for s in doc['ships_to'].split('\n')).strip()
         doc['ships_to'] = ['Worldwide'] if 'Worldwide' in stripped else [s.strip() for s in stripped.split(',')]
+        doc['date'] = dt.datetime.strptime(doc['date'], '%d.%m.%Y')
+        del doc['_id']
 
     print('{} docs'.format(len(docs)))
 
@@ -44,11 +46,12 @@ if __name__ == '__main__':
     print(Counter(d['ships_from'] for d in docs))
     print(Counter(t for d in docs for t in d['ships_to']))
 
-    filtered_docs = {(doc['title'], doc['date']): doc for doc in docs # filter duplicate dates, TODO: rather differentiate by timestep, too
-            if doc['price_unit'] == args.price_unit and
+    filtered_docs = [doc for doc in docs if doc['price_unit'] == args.price_unit and
                 (args.ships_from is None or args.ships_from == doc['ships_from']) and
-                (args.ships_to is None or args.ships_to in doc['ships_to'])
-            }.values()
+                (args.ships_to is None or args.ships_to in doc['ships_to'])]
+
+    filtered_docs = {(doc['title'], doc['date']): doc for doc in filtered_docs}.values() #remove duplicates
+
     print('{} docs with price unit /{} shipping from {} to {}'.format(len(filtered_docs), args.price_unit, args.ships_from, args.ships_to))
 
     def to_float(price):
@@ -64,7 +67,7 @@ if __name__ == '__main__':
 
     filtered_docs = [{
         'title': d['title'],
-        'date': dt.datetime.strptime(d['date'],'%d.%m.%Y').date(),
+        'date': d['date'],
         'price': to_float(d['price'].strip('$').strip('€')),
         'currency': re.sub(r'[^\$\€]', '', d['price'])}
         for d in filtered_docs]
@@ -84,9 +87,10 @@ if __name__ == '__main__':
     print('getting exchange rates...')
     for doc in filtered_docs:
         if doc['currency'] == '$':
-            if not doc['date'] in rates:
-                rates[doc['date']] = c.get_rate('USD', 'EUR', doc['date'])
-            doc['price'] *= rates[doc['date']]
+            date = doc['date']
+            if not date in rates:
+                rates[date] = c.get_rate('USD', 'EUR', date)
+            doc['price'] *= rates[date]
     print('DONE')
 
     dates = sorted({d['date'] for d in filtered_docs})
