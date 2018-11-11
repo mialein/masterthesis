@@ -7,6 +7,7 @@ if __name__ == '__main__':
     import argparse
     import re
     from collections import Counter
+    from forex_python.converter import CurrencyRates
 
 
     parser = argparse.ArgumentParser()
@@ -29,8 +30,6 @@ if __name__ == '__main__':
         query = {'drug_type': args.drug}
         docs = table.find(query)
 
-    currency = '$' 
-
     docs = [d for d in docs]
     for doc in docs:
         doc['price_unit'] = doc['price_unit'].lower().strip().replace('/', '')
@@ -46,10 +45,11 @@ if __name__ == '__main__':
     print(Counter(t for d in docs for t in d['ships_to']))
 
     filtered_docs = {(doc['title'], doc['date']): doc for doc in docs # filter duplicate dates, TODO: rather differentiate by timestep, too
-            if currency in doc['price'] and doc['price_unit'] == args.price_unit and
-                (args.ships_from is None or args.ships_from == doc['ships_from']) and (args.ships_to is None or args.ships_to in doc['ships_to'])
+            if doc['price_unit'] == args.price_unit and
+                (args.ships_from is None or args.ships_from == doc['ships_from']) and
+                (args.ships_to is None or args.ships_to in doc['ships_to'])
             }.values()
-    print('{} docs with {}/{} shipping from {} to {}'.format(len(filtered_docs), currency, args.price_unit, args.ships_from, args.ships_to))
+    print('{} docs with price unit /{} shipping from {} to {}'.format(len(filtered_docs), args.price_unit, args.ships_from, args.ships_to))
 
     def to_float(price):
         try:
@@ -65,19 +65,29 @@ if __name__ == '__main__':
     filtered_docs = [{
         'title': d['title'],
         'date': dt.datetime.strptime(d['date'],'%d.%m.%Y').date(),
-        'price': to_float(d['price'].strip(currency))}
+        'price': to_float(d['price'].strip('$').strip('€')),
+        'currency': re.sub(r'[^\$\€]', '', d['price'])}
         for d in filtered_docs]
 
     if args.price_unit == 'gram':
         find_multi = re.compile(r'(\d+)\s*(gr|g)', re.I) #case insensitive
 
-        for eg in filtered_docs:
-            match = find_multi.search(eg['title'])
+        for doc in filtered_docs:
+            match = find_multi.search(doc['title'])
             if match:
                 div = int(match.group(1))
                 if div != 0:
-                    eg['price'] /= div
+                    doc['price'] /= div
 
+    c = CurrencyRates()
+    rates = {}
+    print('getting exchange rates...')
+    for doc in filtered_docs:
+        if doc['currency'] == '$':
+            if not doc['date'] in rates:
+                rates[doc['date']] = c.get_rate('USD', 'EUR', doc['date'])
+            doc['price'] *= rates[doc['date']]
+    print('DONE')
 
     dates = sorted({d['date'] for d in filtered_docs})
 
