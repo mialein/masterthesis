@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--drug', choices=drug_list, default='weed')
     parser.add_argument('--price_unit', choices=unit_list, default='gram')
     parser.add_argument('--ships_from', help='one of US, DE, NL, etc...')
-    parser.add_argument('--ships_to', help='one of Worldwide, US, DE, NL, etc...')
+    parser.add_argument('--ships_to', help='one of WW, US, DE, NL, etc...')
 
     args = parser.parse_args()
 
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         doc['price_unit'] = doc['price_unit'].lower().strip().replace('/', '')
         doc['ships_from'] = ' '.join(s.replace('Ships from:', '').strip() for s in doc['ships_from'].split('\n')).strip()
         stripped = ' '.join(s.replace('Only ships to certain countries', '').strip() for s in doc['ships_to'].split('\n')).strip()
-        doc['ships_to'] = ['Worldwide'] if 'Worldwide' in stripped else [s.strip() for s in stripped.split(',')]
+        doc['ships_to'] = [s.replace('Ships Worldwide', 'WW').replace('WW WW', 'WW').strip() for s in stripped.split(',')]
         doc['date'] = dt.datetime.strptime(doc['date'], '%d.%m.%Y')
         del doc['_id']
 
@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
     prices_per_date = {date: [p['price'] for p in filtered_docs if p['date'] == date] for date in dates} # group by dates
 
-    labels = ['Anzahl Angebote', 'Preis (Median)']
+    labels = ['Anzahl Angebote', 'Preis €/g (Median)']
 
     data_per_date = {date: {labels[0]: len(prices), labels[1]: np.median(prices)}
                      for date, prices in prices_per_date.items()}
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         if args.ships_to:
             legend += '\nnach ' + args.ships_to
         plt.legend([legend], loc='lower right')
-        plt.xticks(dates[], rotation=90)
+        plt.xticks(dates, rotation=90)
         plt.grid(True)
         plt.tight_layout()
         plt.show()

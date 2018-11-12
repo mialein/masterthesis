@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     prices_per_date = {date: [p['price'] for p in filtered_docs if p['date'] == date] for date in dates} # group by dates
 
-    labels = ['Anzahl Angebote', 'Preis (Median)']
+    labels = ['Anzahl Angebote', 'Preis €/g (Median)']
 
     data_per_date = {date: {labels[0]: len(prices), labels[1]: np.median(prices)}
                      for date, prices in prices_per_date.items()}
