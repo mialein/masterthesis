@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     prices_per_date = {date: [p['price'] for p in filtered_docs if p['date'] == date] for date in dates} # group by dates
 
-    labels = ['offer count', 'median price']
+    labels = ['Anzahl Angebote', 'Preis (Median)']
 
     data_per_date = {date: {labels[0]: len(prices), labels[1]: np.median(prices)}
                      for date, prices in prices_per_date.items()}
@@ -104,11 +104,11 @@ if __name__ == '__main__':
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y'))
         plt.plot(dates, y)
 
-        legend = '{} for {}'.format(label, args.drug)
+        legend = '{} für {}'.format(label, args.drug)
         if args.ships_from:
-            legend += '\nfrom ' + args.ships_from
+            legend += '\nvon ' + args.ships_from
         if args.ships_to:
-            legend += '\nto ' + args.ships_to
+            legend += '\nnach ' + args.ships_to
         plt.legend([legend], loc='lower right')
         plt.xticks(dates, rotation=90)
         plt.grid(True)

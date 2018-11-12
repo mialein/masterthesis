@@ -8,6 +8,8 @@ if __name__ == '__main__':
     import re
     from collections import Counter
     from forex_python.converter import CurrencyRates
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
 
 
     parser = argparse.ArgumentParser()
@@ -99,26 +101,24 @@ if __name__ == '__main__':
 
     prices_per_date = {date: [p['price'] for p in filtered_docs if p['date'] == date] for date in dates} # group by dates
 
-    labels = ['offer count', 'median price']
+    labels = ['Anzahl Angebote', 'Preis (Median)']
 
     data_per_date = {date: {labels[0]: len(prices), labels[1]: np.median(prices)}
                      for date, prices in prices_per_date.items()}
 
-    import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
-
-    y = {label: [data[label] for date, data in sorted(data_per_date.items())] for label in labels}
-
     for label in labels:
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y'))
-        plt.plot(dates, y[label])
+        y = [data[label] for date, data in sorted(data_per_date.items())]
 
-        legend = '{} for {}'.format(label, args.drug)
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y'))
+        plt.plot(dates, y)
+
+        legend = '{} für {}'.format(label, args.drug)
         if args.ships_from:
-            legend += '\nfrom ' + args.ships_from
+            legend += '\nvon ' + args.ships_from
         if args.ships_to:
-            legend += '\nto ' + args.ships_to
+            legend += '\nnach ' + args.ships_to
         plt.legend([legend], loc='lower right')
-        plt.xticks(dates[::1], rotation=90)
+        plt.xticks(dates[], rotation=90)
+        plt.grid(True)
         plt.tight_layout()
         plt.show()
