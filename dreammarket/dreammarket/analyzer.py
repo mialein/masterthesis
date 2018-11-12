@@ -1,0 +1,116 @@
+if __name__ == '__main__':
+    import pymongo
+    from scrapy.conf import settings
+    import numpy as np
+    import datetime as dt
+    import sys
+    import argparse
+    import re
+    from collections import Counter
+    from forex_python.bitcoin import BtcConverter
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+
+
+    parser = argparse.ArgumentParser()
+
+    drug_list = ['weed', 'hashish', 'concentrates', 'cocaine', 'meth', 'speed',
+            'lsd', 'mdma', 'benzos', 'ecstasy', 'opiates', 'steroids']
+    unit_list = ['gram', 'piece']
+
+    parser.add_argument('--drug', choices=drug_list, default='weed')
+    #parser.add_argument('--price_unit', choices=unit_list, default='gram')
+    parser.add_argument('--ships_from', help='one of US, DE, NL, etc...')
+    parser.add_argument('--ships_to', help='one of WW, US, DE, NL, etc...')
+
+    args = parser.parse_args()
+
+    with pymongo.MongoClient(settings['MONGODB_SERVER'], settings['MONGODB_PORT']) as client:
+        db = client[settings['MONGODB_DB']]
+        table = db[settings['MONGODB_COLLECTION']]
+
+        counts = Counter(doc['date'] for doc in table.find())
+        print(counts)
+
+        query = {'drug_type': args.drug}
+        docs = table.find(query)
+
+    bad_dates = ['29.09.2018', '02.10.2018', '03.10.2018', '05.10.2018', '11.10.2018', '15.10.2018', '16.10.2018', '22.10.2018', '04.11.2018', '06.11.2018']
+    docs = [d for d in docs if d['date'] not in bad_dates]
+
+    find_unit = re.compile(r'(\d+)\s*(gram|gr|g)', re.I) #case insensitive
+    for doc in docs:
+        match = find_unit.search(doc['title'])
+        doc['price_unit'] = match.group(2) if match and int(match.group(1)) != 0 else None
+        doc['amount'] = int(match.group(1)) if match else 1
+        doc['ships_from'] = doc['ships_from'].strip()
+        doc['ships_to'] = [s.strip() for s in doc['ships_to'].split(',')]
+        doc['date'] = dt.datetime.strptime(doc['date'], '%d.%m.%Y')
+        del doc['_id']
+
+    print('{} docs'.format(len(docs)))
+
+    print(Counter(d['price_unit'] for d in docs))
+    print(Counter(re.sub(r'[^\$\€\฿\£]', '', d['price']) for d in docs))
+    print(Counter(d['ships_from'] for d in docs))
+    print(Counter(t for d in docs for t in d['ships_to']))
+
+    filtered_docs = [doc for doc in docs if doc['price_unit'] is not None and
+            (args.ships_from is None or args.ships_from == doc['ships_from']) and
+            (args.ships_to is None or args.ships_to in doc['ships_to'])]
+    print('{} docs with price unit /gram shipping from {} to {}'.format(len(filtered_docs), args.ships_from, args.ships_to))
+
+    filtered_docs = {(doc['title'], doc['date']): doc for doc in filtered_docs}.values() #remove duplicates
+    print('{} docs (without duplicates) with price unit /gram shipping from {} to {}'.format(len(filtered_docs), args.ships_from, args.ships_to))
+
+    def to_float(price):
+        try:
+            return float(price)
+        except:
+            print('failed: ' + price)
+            return None
+
+    filtered_docs = [{
+        'title': d['title'],
+        'date': d['date'],
+        'price': to_float(d['price'].strip('฿')) / d['amount']}
+        for d in filtered_docs]
+
+    c = BtcConverter()
+    start_date = min(d['date'] for d in filtered_docs)
+    end_date = max(d['date'] for d in filtered_docs)
+
+    print('getting exchange rates...')
+    rates = c.get_previous_price_list('EUR', start_date, end_date)
+    rates = {dt.datetime.strptime(date, '%Y-%m-%d'): rate for date, rate in rates.items()}
+
+    for doc in filtered_docs:
+        doc['price'] *= rates[doc['date']]
+
+    print('DONE')
+
+    dates = sorted({d['date'] for d in filtered_docs})
+
+    prices_per_date = {date: [p['price'] for p in filtered_docs if p['date'] == date] for date in dates} # group by dates
+
+    labels = ['offer count', 'median price']
+
+    data_per_date = {date: {labels[0]: len(prices), labels[1]: np.median(prices)}
+                     for date, prices in prices_per_date.items()}
+
+    for label in labels:
+        y = [data[label] for date, data in sorted(data_per_date.items())]
+
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y'))
+        plt.plot(dates, y)
+
+        legend = '{} for {}'.format(label, args.drug)
+        if args.ships_from:
+            legend += '\nfrom ' + args.ships_from
+        if args.ships_to:
+            legend += '\nto ' + args.ships_to
+        plt.legend([legend], loc='lower right')
+        plt.xticks(dates, rotation=90)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
