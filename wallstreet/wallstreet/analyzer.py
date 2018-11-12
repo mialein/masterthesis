@@ -30,7 +30,9 @@ if __name__ == '__main__':
         query = {'drug_type': args.drug}
         docs = table.find(query)
 
-    docs = [d for d in docs]
+    bad_dates = ['23.08.2018', '24.08.2018', '26.09.2018', '19.10.2018']
+    docs = [d for d in docs if d['date'] not in bad_dates]
+
     for doc in docs:
         doc['price_unit'] = doc['price_unit'].lower().strip().replace('/', '')
         doc['ships_from'] = ' '.join(s.replace('Ships from:', '').strip() for s in doc['ships_from'].split('\n')).strip()
@@ -118,4 +120,5 @@ if __name__ == '__main__':
             legend += '\nto ' + args.ships_to
         plt.legend([legend], loc='lower right')
         plt.xticks(dates[::1], rotation=90)
+        plt.tight_layout()
         plt.show()
