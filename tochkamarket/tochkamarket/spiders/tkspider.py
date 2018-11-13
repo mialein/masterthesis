@@ -3,6 +3,7 @@ from scrapy import FormRequest, Request
 import time
 import logging
 import json
+from tochkamarket.items import DrugOfferItem
 
 from io import BytesIO, open
 import tkinter
@@ -24,16 +25,10 @@ class MySpider(Spider):
         ships_to = response.selector.xpath("//table[@class='ui celled table fluid inverted green']//th[3]/span/text()").extract_first() or ''
         date = time.strftime("%d.%m.%Y")
         timestamp = time.strftime("%H:%M:%S")
-        logging.debug('title: ' + title)
-        logging.debug('vendor: ' + vendor)
-        logging.debug('amount: ' + amount)
-        logging.debug('price: ' + price)
-        logging.debug('ships from: ' + ships_from)
-        logging.debug('ships to: ' + ships_to)
 
-        #yield DrugOfferItem(title=title, vendor=vendor, price=price, price_unit=price_unit,
-        #                    ships_from=ships_from, ships_to=ships_to, date=date, time=timestamp,
-        #                    drug_type=response.meta['drugname'])
+        yield DrugOfferItem(title=title, vendor=vendor, amount=amount, price=price, price_unit=price_unit,
+                            ships_from=ships_from, ships_to=ships_to, date=date, time=timestamp,
+                            drug_type=response.meta['drugname'])
 
     def login(self, response):
         logging.debug("in login()")

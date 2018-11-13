@@ -57,6 +57,6 @@ MONGODB_COLLECTION = "dreammarket-testbase"
 # Configure a delay for requests for the same website (default: 0)
 # See https://doc.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = 10.0
+DOWNLOAD_DELAY = 12.0
 AUTOTHROTTLE_ENABLED = True
 AUTOTHROTTLE_TARGET_CONCURRENCY = 0.5
