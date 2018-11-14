@@ -11,6 +11,20 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
+    def add_scraping_session(docs):
+        for doc in docs:
+            doc['datetime'] = dt.datetime.strptime(doc['date'] + ' ' + doc['time'], '%d.%m.%Y %H:%M:%S')
+
+        docs = sorted(docs, key=lambda d: d['datetime'])
+
+        last_time = dt.datetime(year=2000, month=1, day=1)
+        for doc in docs:
+            if doc['datetime'] > last_time + dt.timedelta(hours=1):
+                group_time = doc['datetime']
+            doc['scraping_session'] = group_time
+            last_time = doc['datetime']
+
+        return docs
 
     parser = argparse.ArgumentParser()
 
@@ -28,15 +42,31 @@ if __name__ == '__main__':
     with pymongo.MongoClient(settings['MONGODB_SERVER'], settings['MONGODB_PORT']) as client:
         db = client[settings['MONGODB_DB']]
         table = db[settings['MONGODB_COLLECTION']]
+        table1 = db['dreammarket']
 
-        counts = Counter(doc['date'] for doc in table.find())
-        print(counts)
+        docs = list(table.find()) + list(table1.find())
 
-        query = {'drug_type': args.drug}
-        docs = table.find(query)
+    docs = add_scraping_session(docs)
+    groups = Counter(doc['scraping_session'] for doc in docs)
 
-    bad_dates = ['29.09.2018', '02.10.2018', '03.10.2018', '05.10.2018', '11.10.2018', '15.10.2018', '16.10.2018', '22.10.2018', '04.11.2018', '06.11.2018']
-    docs = [d for d in docs if d['date'] not in bad_dates]
+    #x = [date for date, counts in sorted(groups.items())]
+    #y = [counts for date, counts in sorted(groups.items())]
+
+    #plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y %H:%M:%S'))
+    #plt.plot(x, y)
+
+    #legend = 'items per scraping start'
+    #plt.legend([legend], loc='lower right')
+    #plt.xticks(x, rotation=90)
+    #plt.grid(True)
+    #plt.tight_layout()
+    #plt.show()
+
+    counts = [(dt.datetime.strftime(session, '%d.%m.%Y %H:%M:%S'), count) for session, count in groups.items()]
+    print(counts)
+
+    bad_dates = [date for date, count in groups.items() if count < 49000]
+    docs = [d for d in docs if d['scraping_session'] not in bad_dates and d['drug_type'] == args.drug]
 
     find_unit = re.compile(r'(\d+)\s*(gram|gr|g)', re.I) #case insensitive
     for doc in docs:
@@ -45,7 +75,6 @@ if __name__ == '__main__':
         doc['amount'] = int(match.group(1)) if match else 1
         doc['ships_from'] = doc['ships_from'].strip()
         doc['ships_to'] = [s.strip() for s in doc['ships_to'].split(',')]
-        doc['date'] = dt.datetime.strptime(doc['date'], '%d.%m.%Y')
         del doc['_id']
 
     print('{} docs'.format(len(docs)))
@@ -60,8 +89,8 @@ if __name__ == '__main__':
             (args.ships_to is None or args.ships_to in doc['ships_to'])]
     print('{} docs with price unit /gram shipping from {} to {}'.format(len(filtered_docs), args.ships_from, args.ships_to))
 
-    filtered_docs = {(doc['title'], doc['date']): doc for doc in filtered_docs}.values() #remove duplicates
-    print('{} docs (without duplicates) with price unit /gram shipping from {} to {}'.format(len(filtered_docs), args.ships_from, args.ships_to))
+    #filtered_docs = {(doc['title'], doc['scraping_session']): doc for doc in filtered_docs}.values() #remove duplicates
+    #print('{} docs (without duplicates) with price unit /gram shipping from {} to {}'.format(len(filtered_docs), args.ships_from, args.ships_to))
 
     def to_float(price):
         try:
@@ -72,22 +101,22 @@ if __name__ == '__main__':
 
     filtered_docs = [{
         'title': d['title'],
-        'date': d['date'],
+        'date': d['scraping_session'].date(),
         'price': to_float(d['price'].strip('฿')) / d['amount']}
         for d in filtered_docs]
 
-    c = BtcConverter()
-    start_date = min(d['date'] for d in filtered_docs)
-    end_date = max(d['date'] for d in filtered_docs)
+    #c = BtcConverter()
+    #start_date = min(d['date'] for d in filtered_docs)
+    #end_date = max(d['date'] for d in filtered_docs)
 
-    print('getting exchange rates...')
-    rates = c.get_previous_price_list('EUR', start_date, end_date)
-    rates = {dt.datetime.strptime(date, '%Y-%m-%d'): rate for date, rate in rates.items()}
+    #print('getting exchange rates...')
+    #rates = c.get_previous_price_list('EUR', start_date, end_date)
+    #rates = {dt.datetime.strptime(date, '%Y-%m-%d'): rate for date, rate in rates.items()}
 
-    for doc in filtered_docs:
-        doc['price'] *= rates[doc['date']]
+    #for doc in filtered_docs:
+        #doc['price'] *= rates[doc['date']]
 
-    print('DONE')
+    #print('DONE')
 
     dates = sorted({d['date'] for d in filtered_docs})
 
