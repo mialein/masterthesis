@@ -11,6 +11,31 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
+    def add_scraping_session(docs):
+        for doc in docs:
+            doc['datetime'] = dt.datetime.strptime(doc['date'] + ' ' + doc['time'], '%d.%m.%Y %H:%M:%S')
+
+        docs = sorted(docs, key=lambda d: d['datetime'])
+
+        last_time = dt.datetime(year=2000, month=1, day=1)
+        for doc in docs:
+            if doc['datetime'] > last_time + dt.timedelta(hours=3):
+                group_time = doc['datetime']
+            doc['scraping_session'] = group_time
+            last_time = doc['datetime']
+
+        return docs
+
+    def plot(x, y, legend, time_format='%d.%m.%Y %H:%M:%S'):
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter(time_format))
+        plt.plot(x, y)
+
+        plt.legend([legend], loc='lower right')
+        plt.xticks(x, rotation=90)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
 
     parser = argparse.ArgumentParser()
 
@@ -29,18 +54,24 @@ if __name__ == '__main__':
         db = client[settings['MONGODB_DB']]
         table = db[settings['MONGODB_COLLECTION']]
 
-        query = {'drug_type': args.drug}
-        docs = table.find(query)
+        docs = list(table.find())
 
-    bad_dates = ['23.08.2018', '24.08.2018', '26.09.2018', '19.10.2018']
-    docs = [d for d in docs if d['date'] not in bad_dates]
+    docs = add_scraping_session(docs)
+    docs = {(doc['title'], doc['scraping_session'], doc['price']): doc for doc in docs}.values() #remove duplicates
+    counts = sorted(Counter(d['scraping_session'] for d in docs).items())
+
+    x = [date for date, count in counts]
+    y = [count for date, count in counts]
+    plot(x, y, 'Items per session (without duplicates)')
+
+    bad_dates = [date for date, count in counts if count < 3200]
+    docs = [d for d in docs if d['scraping_session'] not in bad_dates and d['drug_type'] == args.drug]
 
     for doc in docs:
         doc['price_unit'] = doc['price_unit'].lower().strip().replace('/', '')
         doc['ships_from'] = ' '.join(s.replace('Ships from:', '').strip() for s in doc['ships_from'].split('\n')).strip()
         stripped = ' '.join(s.replace('Only ships to certain countries', '').strip() for s in doc['ships_to'].split('\n')).strip()
         doc['ships_to'] = [s.replace('Ships Worldwide', 'WW').replace('WW WW', 'WW').strip() for s in stripped.split(',')]
-        doc['date'] = dt.datetime.strptime(doc['date'], '%d.%m.%Y')
         del doc['_id']
 
     print('{} docs'.format(len(docs)))
@@ -53,8 +84,6 @@ if __name__ == '__main__':
     filtered_docs = [doc for doc in docs if doc['price_unit'] == args.price_unit and
                 (args.ships_from is None or args.ships_from == doc['ships_from']) and
                 (args.ships_to is None or args.ships_to in doc['ships_to'])]
-
-    filtered_docs = {(doc['title'], doc['date']): doc for doc in filtered_docs}.values() #remove duplicates
 
     print('{} docs with price unit /{} shipping from {} to {}'.format(len(filtered_docs), args.price_unit, args.ships_from, args.ships_to))
 
@@ -71,7 +100,7 @@ if __name__ == '__main__':
 
     filtered_docs = [{
         'title': d['title'],
-        'date': d['date'],
+        'date': d['scraping_session'],
         'price': to_float(d['price'].strip('$').strip('€')),
         'currency': re.sub(r'[^\$\€]', '', d['price'])}
         for d in filtered_docs]
@@ -107,18 +136,11 @@ if __name__ == '__main__':
                      for date, prices in prices_per_date.items()}
 
     for label in labels:
-        y = [data[label] for date, data in sorted(data_per_date.items())]
-
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y'))
-        plt.plot(dates, y)
-
         legend = '{} für {}'.format(label, args.drug)
         if args.ships_from:
             legend += '\nvon ' + args.ships_from
         if args.ships_to:
             legend += '\nnach ' + args.ships_to
-        plt.legend([legend], loc='lower right')
-        plt.xticks(dates, rotation=90)
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
+
+        y = [data[label] for date, data in sorted(data_per_date.items())]
+        plot(dates, y, legend, '%d.%m.%Y')
