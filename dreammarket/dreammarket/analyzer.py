@@ -49,19 +49,6 @@ if __name__ == '__main__':
     docs = add_scraping_session(docs)
     groups = Counter(doc['scraping_session'] for doc in docs)
 
-    #x = [date for date, counts in sorted(groups.items())]
-    #y = [counts for date, counts in sorted(groups.items())]
-
-    #plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y %H:%M:%S'))
-    #plt.plot(x, y)
-
-    #legend = 'items per scraping start'
-    #plt.legend([legend], loc='lower right')
-    #plt.xticks(x, rotation=90)
-    #plt.grid(True)
-    #plt.tight_layout()
-    #plt.show()
-
     counts = [(dt.datetime.strftime(session, '%d.%m.%Y %H:%M:%S'), count) for session, count in groups.items()]
     print(counts)
 
@@ -101,22 +88,22 @@ if __name__ == '__main__':
 
     filtered_docs = [{
         'title': d['title'],
-        'date': d['scraping_session'].date(),
+        'date': dt.datetime.combine(d['scraping_session'].date(), dt.datetime.min.time()), # transfer dates to midnight
         'price': to_float(d['price'].strip('฿')) / d['amount']}
         for d in filtered_docs]
 
-    #c = BtcConverter()
-    #start_date = min(d['date'] for d in filtered_docs)
-    #end_date = max(d['date'] for d in filtered_docs)
+    c = BtcConverter()
+    start_date = min(d['date'] for d in filtered_docs)
+    end_date = max(d['date'] for d in filtered_docs)
 
-    #print('getting exchange rates...')
-    #rates = c.get_previous_price_list('EUR', start_date, end_date)
-    #rates = {dt.datetime.strptime(date, '%Y-%m-%d'): rate for date, rate in rates.items()}
+    print('getting exchange rates...')
+    rates = c.get_previous_price_list('EUR', start_date, end_date)
+    rates = {dt.datetime.strptime(date, '%Y-%m-%d'): rate for date, rate in rates.items()}
 
-    #for doc in filtered_docs:
-        #doc['price'] *= rates[doc['date']]
+    for doc in filtered_docs:
+        doc['price'] *= rates[doc['date']]
 
-    #print('DONE')
+    print('DONE')
 
     dates = sorted({d['date'] for d in filtered_docs})
 
