@@ -26,14 +26,22 @@ if __name__ == '__main__':
 
         return docs
 
+    def plot(x, y, legend, time_format='%d.%m.%Y %H:%M:%S'):
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter(time_format))
+        plt.plot(x, y)
+
+        plt.legend([legend], loc='lower right')
+        plt.xticks(x, rotation=90)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
     parser = argparse.ArgumentParser()
 
     drug_list = ['weed', 'hashish', 'concentrates', 'cocaine', 'meth', 'speed',
             'lsd', 'mdma', 'benzos', 'ecstasy', 'opiates', 'steroids']
-    unit_list = ['gram', 'piece']
 
     parser.add_argument('--drug', choices=drug_list, default='weed')
-    #parser.add_argument('--price_unit', choices=unit_list, default='gram')
     parser.add_argument('--ships_from', help='one of US, DE, NL, etc...')
     parser.add_argument('--ships_to', help='one of WW, US, DE, NL, etc...')
 
@@ -47,24 +55,31 @@ if __name__ == '__main__':
         docs = list(table.find()) + list(table1.find())
 
     docs = add_scraping_session(docs)
+    docs = {(doc['title'], doc['scraping_session'], doc['price']): doc for doc in docs}.values() #remove duplicates
     groups = Counter(doc['scraping_session'] for doc in docs)
+    #plot([g for g,i in sorted(groups.items())], [i for g,i in sorted(groups.items())], 'counts')
 
     counts = [(dt.datetime.strftime(session, '%d.%m.%Y %H:%M:%S'), count) for session, count in groups.items()]
-    print(counts)
+    #print(counts)
 
-    bad_dates = [date for date, count in groups.items() if count < 49000]
+    bad_dates = [date for date, count in groups.items() if count < 40000]
     docs = [d for d in docs if d['scraping_session'] not in bad_dates and d['drug_type'] == args.drug]
+    print('removed dates: {}'.format(bad_dates))
 
-    find_unit = re.compile(r'(\d+)\s*(gram|gr|g)', re.I) #case insensitive
+    find_unit = re.compile(r'(\d+\.?\d*)\s*(kilo|kg|g|mg|oz|ounce|pound|lb)', re.IGNORECASE)
     for doc in docs:
         match = find_unit.search(doc['title'])
-        doc['price_unit'] = match.group(2) if match and int(match.group(1)) != 0 else None
-        doc['amount'] = int(match.group(1)) if match else 1
+        doc['price_unit'] = match.group(2) if match else None
+        doc['amount'] = float(match.group(1)) if match and float(match.group(1)) != 0 else 1
         doc['ships_from'] = doc['ships_from'].strip()
         doc['ships_to'] = [s.strip() for s in doc['ships_to'].split(',')]
         del doc['_id']
 
     print('{} docs'.format(len(docs)))
+    unrecognized = [doc for doc in docs if doc['price_unit'] is None]
+    print('{} docs with unrecognized price units:'.format(len(unrecognized)))
+    for doc in unrecognized[:30]:
+        print(doc['title'])
 
     print(Counter(d['price_unit'] for d in docs))
     print(Counter(re.sub(r'[^\$\€\฿\£]', '', d['price']) for d in docs))
@@ -76,9 +91,6 @@ if __name__ == '__main__':
             (args.ships_to is None or args.ships_to in doc['ships_to'])]
     print('{} docs with price unit /gram shipping from {} to {}'.format(len(filtered_docs), args.ships_from, args.ships_to))
 
-    #filtered_docs = {(doc['title'], doc['scraping_session']): doc for doc in filtered_docs}.values() #remove duplicates
-    #print('{} docs (without duplicates) with price unit /gram shipping from {} to {}'.format(len(filtered_docs), args.ships_from, args.ships_to))
-
     def to_float(price):
         try:
             return float(price)
@@ -86,10 +98,12 @@ if __name__ == '__main__':
             print('failed: ' + price)
             return None
 
+    gram_factors = {'kilo': 1000, 'kg': 1000, 'g': 1, 'mg': 0.001, 'oz': 28.3495, 'ounce': 28.3495, 'pound': 453.592, 'lb': 453.592}
+
     filtered_docs = [{
         'title': d['title'],
         'date': dt.datetime.combine(d['scraping_session'].date(), dt.datetime.min.time()), # transfer dates to midnight
-        'price': to_float(d['price'].strip('฿')) / d['amount']}
+        'price': to_float(d['price'].strip('฿')) / d['amount'] * gram_factors[d['price_unit'].lower()]}
         for d in filtered_docs]
 
     c = BtcConverter()
