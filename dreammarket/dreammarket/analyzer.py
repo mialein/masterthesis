@@ -67,10 +67,14 @@ if __name__ == '__main__':
     print('removed dates: {}'.format(bad_dates))
 
     find_unit = re.compile(r'(\d+\.?\d*)\s*(kilo|kg|g|mg|oz|ounce|pound|lb)', re.IGNORECASE)
+    find_multi = re.compile(r'(\d+)\s*x', re.IGNORECASE)
     for doc in docs:
         match = find_unit.search(doc['title'])
+        multi = find_multi.search(doc['title'])
         doc['price_unit'] = match.group(2) if match else None
         doc['amount'] = float(match.group(1)) if match and float(match.group(1)) != 0 else 1
+        if multi and int(multi.group(1)) != 0:
+            doc['amount'] *= int(multi.group(1))
         doc['ships_from'] = doc['ships_from'].strip()
         doc['ships_to'] = [s.strip() for s in doc['ships_to'].split(',')]
         del doc['_id']

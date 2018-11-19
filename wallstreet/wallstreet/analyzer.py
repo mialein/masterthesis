@@ -62,12 +62,16 @@ if __name__ == '__main__':
     docs = [d for d in docs if d['scraping_session'] not in bad_dates and d['drug_type'] == args.drug]
 
     find_unit = re.compile(r'(\d+\.?\d*)\s*(kilo|kg|g|mg|oz|ounce|pound|lb)', re.IGNORECASE)
+    find_multi = re.compile(r'(\d+)\s*x', re.IGNORECASE)
     for doc in docs:
         match = find_unit.search(doc['title'])
+        multi = find_multi.search(doc['title'])
         doc['price_unit'] = doc['price_unit'].lower().strip().replace('/', '')
         if doc['price_unit'] == 'piece':
             doc['price_unit'] = match.group(2).lower() if match else None
         doc['amount'] = float(match.group(1)) if match else 1
+        if multi and int(multi.group(1)) != 0:
+            doc['amount'] *= int(multi.group(1))
         doc['ships_from'] = ' '.join(s.replace('Ships from:', '').strip() for s in doc['ships_from'].split('\n')).strip()
         stripped = ' '.join(s.replace('Only ships to certain countries', '').strip() for s in doc['ships_to'].split('\n')).strip()
         doc['ships_to'] = [s.replace('Ships Worldwide', 'WW').replace('WW WW', 'WW').strip() for s in stripped.split(',')]
@@ -110,7 +114,7 @@ if __name__ == '__main__':
 
     filtered_docs = [{
         'title': d['title'],
-        'date': d['scraping_session'],
+        'date': dt.datetime.combine(d['scraping_session'].date(), dt.datetime.min.time()), # transfer dates to midnight
         'price': to_float(d['price'].strip('$').strip('€')) / d['amount'] / gram_factors[d['price_unit']],
         'currency': re.sub(r'[^\$\€]', '', d['price'])}
         for d in filtered_docs]
