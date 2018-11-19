@@ -41,10 +41,8 @@ if __name__ == '__main__':
 
     drug_list = ['weed', 'hashish', 'concentrates', 'cocaine', 'meth', 'speed',
             'lsd', 'mdma', 'benzos', 'ecstasy', 'opiates', 'steroids']
-    unit_list = ['gram', 'piece']
 
     parser.add_argument('--drug', choices=drug_list, default='weed')
-    parser.add_argument('--price_unit', choices=unit_list, default='gram')
     parser.add_argument('--ships_from', help='one of US, DE, NL, etc...')
     parser.add_argument('--ships_to', help='one of WW, US, DE, NL, etc...')
 
@@ -60,32 +58,38 @@ if __name__ == '__main__':
     docs = {(doc['title'], doc['scraping_session'], doc['price']): doc for doc in docs}.values() #remove duplicates
     counts = sorted(Counter(d['scraping_session'] for d in docs).items())
 
-    x = [date for date, count in counts]
-    y = [count for date, count in counts]
-    plot(x, y, 'Items per session (without duplicates)')
-
     bad_dates = [date for date, count in counts if count < 3200]
     docs = [d for d in docs if d['scraping_session'] not in bad_dates and d['drug_type'] == args.drug]
 
+    find_unit = re.compile(r'(\d+\.?\d*)\s*(kilo|kg|g|mg|oz|ounce|pound|lb)', re.IGNORECASE)
     for doc in docs:
+        match = find_unit.search(doc['title'])
         doc['price_unit'] = doc['price_unit'].lower().strip().replace('/', '')
+        if doc['price_unit'] == 'piece':
+            doc['price_unit'] = match.group(2).lower() if match else None
+        doc['amount'] = float(match.group(1)) if match else 1
         doc['ships_from'] = ' '.join(s.replace('Ships from:', '').strip() for s in doc['ships_from'].split('\n')).strip()
         stripped = ' '.join(s.replace('Only ships to certain countries', '').strip() for s in doc['ships_to'].split('\n')).strip()
         doc['ships_to'] = [s.replace('Ships Worldwide', 'WW').replace('WW WW', 'WW').strip() for s in stripped.split(',')]
         del doc['_id']
 
     print('{} docs'.format(len(docs)))
+    unrecognized = [doc for doc in docs if doc['price_unit'] is None]
+    print('{} docs with unrecognized price units:'.format(len(unrecognized)))
+    for doc in unrecognized[:30]:
+        print(doc['title'])
+
 
     print(Counter(d['price_unit'] for d in docs))
-    print(Counter(re.sub(r'[^\$\€]', '', d['price']) for d in docs))
+    print(Counter(re.sub(r'[^\$\€\฿\£]', '', d['price']) for d in docs))
     print(Counter(d['ships_from'] for d in docs))
     print(Counter(t for d in docs for t in d['ships_to']))
 
-    filtered_docs = [doc for doc in docs if doc['price_unit'] == args.price_unit and
+    filtered_docs = [doc for doc in docs if doc['price_unit'] is not None and
                 (args.ships_from is None or args.ships_from == doc['ships_from']) and
                 (args.ships_to is None or args.ships_to in doc['ships_to'])]
 
-    print('{} docs with price unit /{} shipping from {} to {}'.format(len(filtered_docs), args.price_unit, args.ships_from, args.ships_to))
+    print('{} docs with price unit /gram shipping from {} to {}'.format(len(filtered_docs), args.ships_from, args.ships_to))
 
     def to_float(price):
         try:
@@ -98,22 +102,18 @@ if __name__ == '__main__':
             print('failed: ' + price)
             return None
 
+    gram_factors = {'kilo': 1000, 'kg': 1000,
+            'gram': 1, 'g': 1,
+            'milligram': 0.001, 'mg': 0.001,
+            'oz': 28.3495, 'ounce': 28.3495,
+            'pound': 453.592, 'lb': 453.592}
+
     filtered_docs = [{
         'title': d['title'],
         'date': d['scraping_session'],
-        'price': to_float(d['price'].strip('$').strip('€')),
+        'price': to_float(d['price'].strip('$').strip('€')) / d['amount'] / gram_factors[d['price_unit']],
         'currency': re.sub(r'[^\$\€]', '', d['price'])}
         for d in filtered_docs]
-
-    if args.price_unit == 'gram':
-        find_multi = re.compile(r'(\d+)\s*(gr|g)', re.I) #case insensitive
-
-        for doc in filtered_docs:
-            match = find_multi.search(doc['title'])
-            if match:
-                div = int(match.group(1))
-                if div != 0:
-                    doc['price'] /= div
 
     c = CurrencyRates()
     rates = {}

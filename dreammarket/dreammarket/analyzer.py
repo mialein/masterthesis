@@ -103,7 +103,7 @@ if __name__ == '__main__':
     filtered_docs = [{
         'title': d['title'],
         'date': dt.datetime.combine(d['scraping_session'].date(), dt.datetime.min.time()), # transfer dates to midnight
-        'price': to_float(d['price'].strip('฿')) / d['amount'] * gram_factors[d['price_unit'].lower()]}
+        'price': to_float(d['price'].strip('฿')) / d['amount'] / gram_factors[d['price_unit'].lower()]}
         for d in filtered_docs]
 
     c = BtcConverter()
