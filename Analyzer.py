@@ -1,0 +1,126 @@
+import pymongo
+import datetime as dt
+import re
+from collections import Counter
+from forex_python.converter import CurrencyRates
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
+
+def plot(x, Ys, legends, time_format='%d.%m.%Y'):
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter(time_format))
+
+    for y in Ys:
+        plt.plot(x, y)
+
+    plt.legend(legends, loc='lower right')
+    plt.xticks(x, rotation=90)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+def add_scraping_session(docs, delta_hours=3):
+    for doc in docs:
+        doc['datetime'] = dt.datetime.strptime(doc['date'] + ' ' + doc['time'], '%d.%m.%Y %H:%M:%S')
+
+    docs = sorted(docs, key=lambda d: d['datetime'])
+
+    last_time = dt.datetime(year=2000, month=1, day=1)
+    for doc in docs:
+        if doc['datetime'] > last_time + dt.timedelta(hours=delta_hours):
+            group_time = doc['datetime']
+        doc['scraping_session'] = group_time
+        last_time = doc['datetime']
+
+    return docs
+
+def to_float(price):
+    try:
+        price = price.replace("'", '')
+        if ',' in price:
+            return float(price.replace('.', '').replace(',', '.'))
+        else:
+            return float(price)
+    except:
+        print('failed: ' + price)
+        return None
+
+class Analyzer:
+    def __init__(self):
+        self.docs = []
+        self.bad_docs = []
+        self.gram_factors = {
+                'kilo': 1000, 'kg': 1000,
+                'gram': 1, 'g': 1,
+                'milligram': 0.001, 'mg': 0.001,
+                'oz': 28.3495, 'ounce': 28.3495,
+                'pound': 453.592, 'lb': 453.592
+                }
+        self.units = list(self.gram_factors.keys())
+        self.rates = {}
+
+    def load_wallstreet(self):
+        with pymongo.MongoClient('localhost', 27017) as client:
+            db = client['drug_database']
+            table = db['wallstreet']
+
+            docs = list(table.find())
+
+        docs = add_scraping_session(docs)
+
+        docs = {(doc['title'], doc['scraping_session'], doc['price']): doc for doc in docs}.values() #remove duplicates
+        counts = sorted(Counter(d['scraping_session'] for d in docs).items())
+
+        bad_dates = [date for date, count in counts if count < 3200]
+        docs = [d for d in docs if d['scraping_session'] not in bad_dates]
+
+        find_unit = re.compile(r'(\d+\.?\d*)\s*({})'.format('|'.join(self.units)), re.IGNORECASE)
+        find_multi = re.compile(r'(\d+)\s*x', re.IGNORECASE)
+        for doc in docs:
+            del doc['_id']
+            doc['market'] = 'wallstreet'
+
+            doc['ships_from'] = ' '.join(s.replace('Ships from:', '').strip() for s in doc['ships_from'].split('\n')).strip()
+            stripped = ' '.join(s.replace('Only ships to certain countries', '').strip() for s in doc['ships_to'].split('\n')).strip()
+            doc['ships_to'] = [s.replace('Ships Worldwide', 'WW').replace('WW WW', 'WW').strip() for s in stripped.split(',')]
+
+            match = find_unit.search(doc['title'])
+            doc['price_unit'] = doc['price_unit'].lower().strip().replace('/', '')
+            if doc['price_unit'] == 'piece':
+                doc['price_unit'] = match.group(2).lower() if match else None
+
+            multi = find_multi.search(doc['title'])
+            doc['amount'] = float(match.group(1)) if match and float(match.group(1)) != 0 else 1
+            if multi and int(multi.group(1)) != 0:
+                doc['amount'] *= int(multi.group(1))
+
+            is_dollar = '$' in doc['price']
+            if doc['price_unit'] not in self.gram_factors:
+                self.bad_docs.append(doc)
+            else:
+                doc['price'] = to_float(doc['price'].strip('$').strip('€')) / doc['amount'] / self.gram_factors[doc['price_unit']]
+                doc['date_mid'] = dt.datetime.combine(doc['scraping_session'].date(), dt.datetime.min.time()) # transfer dates to midnight
+
+                c = CurrencyRates()
+                if is_dollar:
+                    date = doc['date_mid']
+                    if not date in self.rates:
+                        self.rates[date] = c.get_rate('USD', 'EUR', date)
+                    doc['price'] *= self.rates[date]
+
+                self.docs.append(doc)
+
+    def get_filters(self):
+        return {key for doc in self.docs for key in doc}
+
+    def get_values(self, *args):
+        return {tuple(doc[arg] for arg in args) for doc in self.docs}
+
+    def filter_docs(self, **kwargs):
+        docs = self.docs
+        if 'ships_to' in kwargs:
+            values = kwargs['ships_to']
+            del kwargs['ships_to']
+            docs = [doc for doc in docs if any(v in doc['ships_to'] for v in values)]
+
+        return [doc for doc in docs if all(doc[key] == value for (key, value) in kwargs.items())]
