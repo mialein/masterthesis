@@ -55,7 +55,9 @@ class Analyzer:
                 'gram': 1, 'g': 1,
                 'milligram': 0.001, 'mg': 0.001,
                 'oz': 28.3495, 'ounce': 28.3495,
-                'pound': 453.592, 'lb': 453.592
+                'pound': 453.592, 'lb': 453.592, 'pd': 453.592, 'p': 453.592,
+                'qp': 453.592/4,
+                'hp': 453.592/2
                 }
         self.units = list(self.gram_factors.keys())
         self.rates = {}
@@ -123,6 +125,7 @@ class Analyzer:
         bad_dates = [date for date, count in counts if count < 3200]
         docs = [d for d in docs if d['scraping_session'] not in bad_dates]
 
+        c = CurrencyRates()
         find_unit = re.compile(r'(\d+\.?\d*)\s*({})'.format('|'.join(self.units)), re.IGNORECASE)
         find_multi = re.compile(r'(\d+)\s*x', re.IGNORECASE)
         for doc in docs:
@@ -150,12 +153,55 @@ class Analyzer:
                 doc['price'] = to_float(doc['price'].strip('$').strip('€')) / doc['amount'] / self.gram_factors[doc['price_unit']]
                 doc['date_mid'] = dt.datetime.combine(doc['scraping_session'].date(), dt.datetime.min.time()) # transfer dates to midnight
 
-                c = CurrencyRates()
                 if is_dollar:
                     date = doc['date_mid']
                     if not date in self.rates:
                         self.rates[date] = c.get_rate('USD', 'EUR', date)
                     doc['price'] *= self.rates[date]
+
+                self.docs.append(doc)
+
+    def load_tochkamarket(self):
+        with pymongo.MongoClient('localhost', 27017) as client:
+            db = client['drug_database']
+            table = db['tochkamarket']
+
+            docs = list(table.find())
+
+        docs = add_scraping_session(docs)
+        docs = {(doc['vendor'], doc['title'], doc['scraping_session'], doc['price']): doc for doc in docs}.values() #remove duplicates
+        counts = sorted(Counter(doc['scraping_session'] for doc in docs).items())
+
+        bad_dates = [date for date, count in counts if count < 1200]
+        docs = [d for d in docs if d['scraping_session'] not in bad_dates]
+
+        c = CurrencyRates()
+        find_unit = re.compile(r'(\d+\.?\d*)?\s*({})'.format('|'.join(self.units)), re.IGNORECASE)
+        find_multi = re.compile(r'(\d+)\s*x', re.IGNORECASE)
+        for doc in docs:
+            del doc['_id']
+            doc['market'] = 'tochkamarket'
+
+            doc['ships_from'] = doc['ships_from'].strip()
+            doc['ships_to'] = [s.strip() for s in doc['ships_to'].split(',')]
+
+            match = find_unit.search(doc['amount'])
+            doc['price_unit'] = match.group(2).lower() if match else None
+            doc['amount'] = float(match.group(1)) if match and match.group(1) else 1
+            multi = find_multi.search(doc['title'])
+            if multi and int(multi.group(1)) != 0:
+                doc['amount'] *= int(multi.group(1))
+
+            if doc['price_unit'] not in self.gram_factors:
+                self.bad_docs.append(doc)
+            else:
+                doc['price'] = to_float(doc['price'].strip('USD')) / doc['amount'] / self.gram_factors[doc['price_unit']]
+                doc['date_mid'] = dt.datetime.combine(doc['scraping_session'].date(), dt.datetime.min.time()) # transfer dates to midnight
+
+                date = doc['date_mid']
+                if not date in self.rates:
+                    self.rates[date] = c.get_rate('USD', 'EUR', date)
+                doc['price'] *= self.rates[date]
 
                 self.docs.append(doc)
 
