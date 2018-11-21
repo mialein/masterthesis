@@ -6,6 +6,7 @@ from forex_python.converter import CurrencyRates
 from forex_python.bitcoin import BtcConverter
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import pandas as pd
 
 
 def plot(x, Ys, legends, time_format='%d.%m.%Y'):
@@ -175,6 +176,46 @@ class Analyzer:
         bad_dates = [date for date, count in counts if count < 1200]
         docs = [d for d in docs if d['scraping_session'] not in bad_dates]
 
+        ships_dict = {
+                'Afghanistan': 'AF',
+                'Australia': 'AU',
+                'Austria': 'AT',
+                'Belgium': 'BE',
+                'Brazil': 'BR',
+                'Canada': 'CA',
+                'China': 'CN',
+                'Columbia': 'CO',
+                'Denmark': 'DK',
+                'Finland': 'FI',
+                'France': 'FR',
+                'Germany': 'DE',
+                'Greece': 'GR',
+                'India': 'IN',
+                'Indonesia': 'ID',
+                'Ireland': 'IE',
+                'Italy': 'IT',
+                'Japan': 'JP',
+                'Luxembourg': 'LU',
+                'Mexico': 'MX',
+                'Netherlands': 'NL',
+                'New Zealand': 'NZ',
+                'Norway': 'NO',
+                'Poland': 'PL',
+                'Portugal': 'PT',
+                'Russia': 'RU',
+                'Saudi Arabia': 'SA',
+                'Singapore': 'SG',
+                'South Africa': 'ZA',
+                'South Korea': 'RK',
+                'Spain': 'ES',
+                'Sweden': 'SE',
+                'Switzerland': 'CH',
+                'Thailand': 'TH',
+                'United Kingdom': 'GB',
+                'United States': 'US',
+                'Worldwide': 'WW'
+                }
+
         c = CurrencyRates()
         find_unit = re.compile(r'(\d+\.?\d*)?\s*({})'.format('|'.join(self.units)), re.IGNORECASE)
         find_multi = re.compile(r'(\d+)\s*x', re.IGNORECASE)
@@ -182,8 +223,9 @@ class Analyzer:
             del doc['_id']
             doc['market'] = 'tochkamarket'
 
-            doc['ships_from'] = doc['ships_from'].strip()
-            doc['ships_to'] = [s.strip() for s in doc['ships_to'].split(',')]
+            ships_from = doc['ships_from'].strip()
+            doc['ships_from'] = ships_dict.get(ships_from, ships_from)
+            doc['ships_to'] = [ships_dict.get(s.strip(), s.strip()) for s in doc['ships_to'].split(',')]
 
             match = find_unit.search(doc['amount'])
             doc['price_unit'] = match.group(2).lower() if match else None
@@ -204,6 +246,11 @@ class Analyzer:
                 doc['price'] *= self.rates[date]
 
                 self.docs.append(doc)
+
+    def load_all(self):
+        self.load_wallstreet()
+        self.load_dreammarket()
+        self.load_tochkamarket()
 
     def get_filters(self):
         return sorted({key for doc in self.docs for key in doc})
