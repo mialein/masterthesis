@@ -9,14 +9,14 @@ import matplotlib.dates as mdates
 import pandas as pd
 
 
-def plot(x, Ys, legends, time_format='%d.%m.%Y'):
+def plot(Xs, Ys, legends, time_format='%d.%m.%Y'):
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter(time_format))
 
-    for y in Ys:
+    for x, y in zip(Xs, Ys):
         plt.plot(x, y)
 
-    plt.legend(legends, loc='lower right')
-    plt.xticks(x, rotation=90)
+    plt.legend(legends, loc='best')
+    plt.xticks(sorted({s for x in Xs for s in x}), rotation=90)
     plt.grid(True)
     plt.tight_layout()
     plt.show()
@@ -62,6 +62,23 @@ class Analyzer:
                 }
         self.units = list(self.gram_factors.keys())
         self.rates = {}
+
+    def plot_available_dates(self):
+        labels = ['wallstreet', 'dreammarket', 'tochkamarket']
+        dates = [self.get_values('date_mid', market=label) for label in labels]
+        Xs = [[d[0] for d in mdates] for mdates in dates]
+        Ys = [[i+1]*len(Xs[i]) for i in range(3)]
+
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y'))
+
+        for x, y in zip(Xs, Ys):
+            plt.plot(x, y, linestyle='', marker='x')
+
+        plt.xticks(sorted({s for x in Xs for s in x}), rotation=90)
+        plt.yticks([1,2,3], labels)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
 
     def load_dreammarket(self):
         with pymongo.MongoClient('localhost', 27017) as client:
