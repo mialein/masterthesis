@@ -9,13 +9,30 @@ import matplotlib.dates as mdates
 import pandas as pd
 
 
-def plot(Xs, Ys, legends, time_format='%d.%m.%Y'):
+drug_types = ['benzos', 'cocaine', 'concentrates', 'ecstasy', 'hashish',
+        'lsd', 'mdma', 'meth', 'opiates', 'speed', 'steroids', 'weed'] 
+
+drug_names = {'benzos': 'Benzos', 'cocaine': 'Kokain',
+        'concentrates': 'Konzentrate', 'ecstasy': 'Ecstasy', 'hashish': 'Hashish',
+        'lsd': 'LSD', 'mdma': 'MDMA', 'meth': 'Meth', 'opiates': 'Opiate',
+        'speed': 'Speed', 'steroids': 'Steroide', 'weed': 'Marihuana'}
+
+line_colors = {'benzos': 'red', 'cocaine': 'green',
+        'concentrates': 'blue', 'ecstasy': 'orange', 'hashish': 'cyan',
+        'lsd': 'black', 'mdma': 'red', 'meth': 'green', 'opiates': 'blue',
+        'speed': 'orange', 'steroids': 'cyan', 'weed': 'black'}
+
+markers = {'benzos': 'o', 'cocaine': 'v', 'concentrates': '^', 'ecstasy': '<',
+        'hashish': '>', 'lsd': 's', 'mdma': 'P', 'meth': 'X', 'opiates': '*',
+        'speed': 'D', 'steroids': 'h', 'weed': 'H'}
+
+def plot(Xs, Ys, drugs, time_format='%d.%m.%Y'):
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter(time_format))
 
-    for x, y in zip(Xs, Ys):
-        plt.plot(x, y)
+    for x, y, d in zip(Xs, Ys, drugs):
+        plt.plot(x, y, color=line_colors[d], marker=markers[d])
 
-    plt.legend(legends, loc='best')
+    plt.legend([drug_names[d] for d in drugs], loc='best')
     plt.xticks(sorted({s for x in Xs for s in x}), rotation=90)
     plt.grid(True)
     plt.tight_layout()
