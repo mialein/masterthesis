@@ -72,6 +72,7 @@ class Analyzer:
                 'kilo': 1000, 'kg': 1000,
                 'gram': 1, 'g': 1,
                 'milligram': 0.001, 'mg': 0.001,
+                'microgram': 0.000001, 'ug': 0.000001, 'µg': 0.000001, 'mcg': 0.000001, 'mic': 0.000001,
                 'oz': 28.3495, 'ounce': 28.3495,
                 'pound': 453.592, 'lb': 453.592, 'pd': 453.592, 'p': 453.592,
                 'qp': 453.592/4,
@@ -304,3 +305,8 @@ class Analyzer:
             return filtered
         else:
             return [{v: doc[v] for v in values} for doc in filtered]
+
+    def get_good_bad(self, **filters):
+        good = [d for d in self.docs if all(d[key] == value for (key, value) in filters.items())]
+        bad = [d for d in self.bad_docs if all(d[key] == value for (key, value) in filters.items())]
+        return len(good), len(bad)
