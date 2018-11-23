@@ -26,13 +26,13 @@ markers = {'benzos': 'o', 'cocaine': 'v', 'concentrates': '^', 'ecstasy': '<',
         'hashish': '>', 'lsd': 's', 'mdma': 'P', 'meth': 'X', 'opiates': '*',
         'speed': 'D', 'steroids': 'h', 'weed': 'H'}
 
-def plot(Xs, Ys, drugs, time_format='%d.%m.%Y'):
+def plot(Xs, Ys, drugs, time_format='%d.%m.%Y', location='best'):
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter(time_format))
 
     for x, y, d in zip(Xs, Ys, drugs):
         plt.plot(x, y, color=line_colors[d], marker=markers[d])
 
-    plt.legend([drug_names[d] for d in drugs], loc='best')
+    plt.legend([drug_names[d] for d in drugs], loc=location)
     plt.xticks(sorted({s for x in Xs for s in x}), rotation=90)
     plt.grid(True)
     plt.tight_layout()
@@ -78,7 +78,7 @@ class Analyzer:
                 'qp': 453.592/4,
                 'hp': 453.592/2
                 }
-        self.units = list(self.gram_factors.keys())
+        self.units = sorted(self.gram_factors.keys(), key=lambda u: len(u))
         self.rates = {}
 
     def plot_available_dates(self):
@@ -263,6 +263,8 @@ class Analyzer:
             doc['ships_to'] = [ships_dict.get(s.strip(), s.strip()) for s in doc['ships_to'].split(',')]
 
             match = find_unit.search(doc['amount'])
+            if not match:
+                match = find_unit.search(doc['title'])
             doc['price_unit'] = match.group(2).lower() if match else None
             doc['amount'] = float(match.group(1)) if match and match.group(1) else 1
             multi = find_multi.search(doc['title'])
