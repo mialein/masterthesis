@@ -26,13 +26,13 @@ markers = {'benzos': 'o', 'cocaine': 'v', 'concentrates': '^', 'ecstasy': '<',
         'hashish': '>', 'lsd': 's', 'mdma': 'P', 'meth': 'X', 'opiates': '*',
         'speed': 'D', 'steroids': 'h', 'weed': 'H'}
 
-def plot(Xs, Ys, drugs, time_format='%d.%m.%Y', location='best'):
+def plot(Xs, Ys, drugs, time_format='%d.%m.%Y', location='best', legends=None):
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter(time_format))
 
     for x, y, d in zip(Xs, Ys, drugs):
         plt.plot(x, y, color=line_colors[d], marker=markers[d])
 
-    plt.legend([drug_names[d] for d in drugs], loc=location)
+    plt.legend(legends if legends else [drug_names[d] for d in drugs], loc=location)
     plt.xticks(sorted({s for x in Xs for s in x}), rotation=90)
     plt.grid(True)
     plt.tight_layout()
@@ -78,7 +78,7 @@ class Analyzer:
                 'qp': 453.592/4,
                 'hp': 453.592/2
                 }
-        self.units = sorted(self.gram_factors.keys(), key=lambda u: len(u))
+        self.units = sorted(self.gram_factors.keys(), key=lambda u: -len(u))
         self.rates = {}
 
     def plot_available_dates(self):
@@ -97,6 +97,12 @@ class Analyzer:
         plt.grid(True)
         plt.tight_layout()
         plt.show()
+
+    def load_cache(self):
+        with pymongo.MongoClient('localhost', 27017) as client:
+            db = client['analyzed']
+            self.docs = list(db['docs'].find())
+            self.bad_docks = list(db['bad_docs'].find())
 
     def load_dreammarket(self):
         with pymongo.MongoClient('localhost', 27017) as client:
@@ -295,12 +301,15 @@ class Analyzer:
     def get_values(self, *values, **filters):
         return sorted({tuple(doc[v] for v in values) for doc in self.filter_docs(**filters)})
 
-    def filter_docs(self, *values, **filters):
+    def filter_docs(self, *values, include_bad_docs=False, **filters):
         docs = self.docs
+        if include_bad_docs:
+            docs += self.bad_docs
+
         if 'ships_to' in filters:
-            values = filters['ships_to']
+            st_values = filters['ships_to']
             del filters['ships_to']
-            docs = [doc for doc in docs if any(v in doc['ships_to'] for v in values)]
+            docs = [doc for doc in docs if any(v in doc['ships_to'] for v in st_values)]
 
         filtered = [doc for doc in docs if all(doc[key] == value for (key, value) in filters.items())]
         if not values:
@@ -312,3 +321,66 @@ class Analyzer:
         good = [d for d in self.docs if all(d[key] == value for (key, value) in filters.items())]
         bad = [d for d in self.bad_docs if all(d[key] == value for (key, value) in filters.items())]
         return len(good), len(bad)
+
+    def get_price_diffs(self, drugs=['cocaine', 'hashish', 'meth', 'speed', 'steroids', 'weed'], froms=['DE', 'NL', 'CA', 'US', 'AF', 'GB', 'JP', 'SA', 'FR', 'CH', 'MX', 'PH', 'VE', 'IE', 'CN', 'WW']):
+        diffs = {}
+        for market in ['wallstreet', 'dreammarket', 'tochkamarket']:
+            for drug in drugs:
+                for sfrom in froms:
+                    df = pd.DataFrame(self.filter_docs('date_mid', 'price', market=market, drug_type=drug, ships_from=sfrom))
+                    if len(df) == 0:
+                        continue
+                    median = df.groupby('date_mid').median()
+                    counts = df.groupby('date_mid').count()
+                    if counts.min()[0] < 10:
+                        continue
+                    pmax, pmin = None, None
+                    pma, pmi = float('-inf'), float('inf') 
+                    for period in range(1, 4):
+                        mc = median.pct_change(periods=period)
+                        if len(mc) <= period:
+                            continue
+
+                        mcm = mc.price[period:].idxmax()
+                        if mc.price[mcm] > pma:
+                            pmax = mcm
+                            pma = mc.price[mcm]
+                        mcm = mc.price[period:].idxmin()
+                        if mc.price[mcm] < pmi:
+                            pmin = mcm
+                            pmi = mc.price[mcm]
+
+                    if pmax is not None and pmin is not None:
+                        price[(market, drug, sfrom)] = (pma, pmax, pmi, pmin)
+        
+        return diffs
+                        
+    def get_vendor_count_diffs(self):
+        diffs = {}
+        for market in ['wallstreet', 'dreammarket', 'tochkamarket']:
+            for sfrom in [v[0] for v in self.get_values('ships_from', market=market)]:
+                df = pd.DataFrame(self.filter_docs('date_mid', 'vendor', include_bad_docs=True, market=market, ships_from=sfrom))
+                if len(df) == 0:
+                    continue
+                counts = df.drop_duplicates().groupby('date_mid').count()
+
+                cmax, cmin = None, None
+                cma, cmi = float('-inf'), float('inf') 
+                for period in range(1, 4):
+                    cc = counts.diff(periods=period)
+                    if len(cc) <= period:
+                        continue
+
+                    ccm = cc.vendor[period:].idxmax()
+                    if cc.vendor[ccm] > cma:
+                        cmax = ccm
+                        cma = cc.vendor[ccm]
+                    ccm = cc.vendor[period:].idxmin()
+                    if cc.vendor[ccm] < cmi:
+                        cmin = ccm
+                        cmi = cc.vendor[ccm]
+
+                if cmax is not None and cmin is not None:
+                    diffs[(market, sfrom)] = (cma, cmax, cmi, cmin)
+
+        return diffs
