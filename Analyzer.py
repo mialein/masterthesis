@@ -26,17 +26,31 @@ markers = {'benzos': 'o', 'cocaine': 'v', 'concentrates': '^', 'ecstasy': '<',
         'hashish': '>', 'lsd': 's', 'mdma': 'P', 'meth': 'X', 'opiates': '*',
         'speed': 'D', 'steroids': 'h', 'weed': 'H'}
 
-def plot(Xs, Ys, drugs, time_format='%d.%m.%Y', location='best', legends=None):
+default_plot_width = {'wallstreet': 1400, 'dreammarket': 950, 'tochkamarket': 800}
+
+def plot(Xs, Ys, xlabel, ylabel, drugs=None, time_format='%d.%m.%Y', location='best', legends=None, show=True, filename=None, market=None):
+    width = default_plot_width[market] / 80 if market else 10
+    f = plt.figure(figsize=(width, 6))
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter(time_format))
 
-    for x, y, d in zip(Xs, Ys, drugs):
-        plt.plot(x, y, color=line_colors[d], marker=markers[d])
+    if drugs:
+        for x, y, d in zip(Xs, Ys, drugs):
+            plt.plot(x, y, color=line_colors[d], marker=markers[d])
+    else:
+        for x, y, in zip(Xs, Ys):
+            plt.plot(x, y, marker='o')
 
-    plt.legend(legends if legends else [drug_names[d] for d in drugs], loc=location)
+    if drugs or legends:
+        plt.legend(legends if legends else [drug_names[d] for d in drugs], loc=location)
     plt.xticks(sorted({s for x in Xs for s in x}), rotation=90)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    if show:
+        plt.show()
+    if filename:
+        f.savefig(filename+'.pdf', format='pdf')
 
 def add_scraping_session(docs, delta_hours=3):
     for doc in docs:
@@ -81,12 +95,28 @@ class Analyzer:
         self.units = sorted(self.gram_factors.keys(), key=lambda u: -len(u))
         self.rates = {}
 
-    def plot_available_dates(self):
+    def plot_prices(self, show=True, filename=None):
+        for market in ['wallstreet', 'dreammarket', 'tochkamarket']:
+            Xs, Ys = [], []
+            drugs = drug_types if market != 'tochkamarket' else drug_types[:2]+drug_types[3:]
+            for drug in drugs:
+                pl = pd.DataFrame(self.filter_docs('date_mid', 'price', market=market, drug_type=drug))
+                med = pl.groupby('date_mid').median()
+                medmean = med.mean()[0]
+                diff = (med / medmean - 1) * 100
+                Xs.append(diff.index);
+                Ys.append(diff.price)
+            plt.yticks(range(-20, 21, 5))
+            plot(Xs, Ys, 'Datum', 'relative Preisschwankung [%]', drugs=drugs, show=show, filename=market+'_'+filename if filename else None, market=market)
+
+    def plot_available_dates(self, show=True, filename=None):
         labels = ['wallstreet', 'dreammarket', 'tochkamarket']
         dates = [self.get_values('date_mid', market=label) for label in labels]
         Xs = [[d[0] for d in mdates] for mdates in dates]
         Ys = [[i+1]*len(Xs[i]) for i in range(3)]
 
+        width = default_plot_width['wallstreet'] / 80
+        f = plt.figure(figsize=(width, 6))
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%Y'))
 
         for x, y in zip(Xs, Ys):
@@ -94,9 +124,14 @@ class Analyzer:
 
         plt.xticks(sorted({s for x in Xs for s in x}), rotation=90)
         plt.yticks([1,2,3], labels)
+        plt.xlabel('Datum')
+        plt.ylabel('Markt')
         plt.grid(True)
         plt.tight_layout()
-        plt.show()
+        if show:
+            plt.show()
+        if filename:
+            f.savefig(filename+'.pdf', format='pdf')
 
     def load_cache(self):
         with pymongo.MongoClient('localhost', 27017) as client:
